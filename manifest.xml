@@ -17,10 +17,7 @@
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
     <SupportUrl DefaultValue="https://www.contoso.com/help"/>
 
-    <!-- Permissions - require read item and mailbox -->
-    <Permissions>ReadWriteMailbox</Permissions>
-
-    <!-- Requirements -->
+    <!-- Requirements - MOVED BEFORE Permissions -->
     <Requirements>
         <Sets>
             <Set Name="Mailbox" MinVersion="1.5"/>
@@ -36,6 +33,14 @@
             </DesktopSettings>
         </Form>
     </FormSettings>
+
+    <!-- Permissions - MOVED AFTER FormSettings -->
+    <Permissions>ReadWriteMailbox</Permissions>
+
+    <Rule xsi:type="RuleCollection" Mode="Or">
+        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+    </Rule>
 
     <!-- Hosts - specify Outlook -->
     <Hosts>
