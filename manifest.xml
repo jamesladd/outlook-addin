@@ -17,7 +17,17 @@
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
     <SupportUrl DefaultValue="https://www.contoso.com/help"/>
 
-    <!-- Requirements - MOVED BEFORE Permissions -->
+    <!-- App Domains (optional, but good to include if needed) -->
+    <AppDomains>
+        <AppDomain>https://jamesladd.github.io</AppDomain>
+    </AppDomains>
+
+    <!-- Hosts - MOVED HERE, BEFORE Requirements -->
+    <Hosts>
+        <Host Name="Mailbox"/>
+    </Hosts>
+
+    <!-- Requirements -->
     <Requirements>
         <Sets>
             <Set Name="Mailbox" MinVersion="1.5"/>
@@ -34,7 +44,7 @@
         </Form>
     </FormSettings>
 
-    <!-- Permissions - MOVED AFTER FormSettings -->
+    <!-- Permissions -->
     <Permissions>ReadWriteMailbox</Permissions>
 
     <Rule xsi:type="RuleCollection" Mode="Or">
@@ -42,12 +52,10 @@
         <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
     </Rule>
 
-    <!-- Hosts - specify Outlook -->
-    <Hosts>
-        <Host Name="Mailbox"/>
-    </Hosts>
+    <!-- DisableEntityHighlighting (optional) -->
+    <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
-    <!-- Version Overrides for modern UI -->
+    <!-- Version Overrides for modern UI - MUST BE LAST -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
         <Requirements>
             <bt:Sets DefaultMinVersion="1.5">
@@ -91,7 +99,7 @@
                         </OfficeTab>
                     </ExtensionPoint>
 
-                    <!-- Extension point for message context menu -->
+                    <!-- Extension point for message compose mode -->
                     <ExtensionPoint xsi:type="MessageComposeCommandSurface">
                         <OfficeTab id="TabDefault">
                             <Group id="msgComposeGroup">
