@@ -1,191 +1,132 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<OfficeApp
-        xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xmlns:bt="http://schemas.microsoft.com/office/officeappbasictaskpane/1.0"
-        xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
-        xsi:type="MailApp">
+<!-- Version Overrides for modern UI -->
+<VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
 
-    <!-- Basic add-in information -->
-    <Id>12345678-1234-1234-1234-123456789012</Id>
-    <Version>1.0.0.0</Version>
-    <ProviderName>My Company</ProviderName>
-    <DefaultLocale>en-US</DefaultLocale>
-    <DisplayName DefaultValue="InboxAgent"/>
-    <Description DefaultValue="An add-in that displays user info and report data"/>
-    <IconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
-    <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
-    <SupportUrl DefaultValue="https://www.contoso.com/help"/>
-
-    <!-- App Domains -->
-    <AppDomains>
-        <AppDomain>https://jamesladd.github.io</AppDomain>
-    </AppDomains>
-
-    <!-- Hosts -->
-    <Hosts>
-        <Host Name="Mailbox"/>
-    </Hosts>
-
-    <!-- Requirements -->
     <Requirements>
-        <Sets>
-            <Set Name="Mailbox" MinVersion="1.5"/>
-        </Sets>
+        <bt:Sets DefaultMinVersion="1.5" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+            <bt:Set Name="Mailbox"/>
+        </bt:Sets>
     </Requirements>
 
-    <!-- Form settings for read mode -->
-    <FormSettings>
-        <Form xsi:type="ItemRead">
-            <DesktopSettings>
-                <SourceLocation DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
-                <RequestedHeight>450</RequestedHeight>
-            </DesktopSettings>
-        </Form>
-    </FormSettings>
+    <Hosts>
+        <Host xsi:type="MailHost">
 
-    <!-- Permissions -->
-    <Permissions>ReadWriteMailbox</Permissions>
+            <!-- Desktop Form Factor -->
+            <DesktopFormFactor>
 
-    <Rule xsi:type="RuleCollection" Mode="Or">
-        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
-        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
-    </Rule>
+                <!-- Function file for commands -->
+                <FunctionFile resid="Commands.Url"/>
 
-    <!-- DisableEntityHighlighting -->
-    <DisableEntityHighlighting>false</DisableEntityHighlighting>
+                <!-- Extension point for message read mode (when viewing an email) -->
+                <ExtensionPoint xsi:type="MessageReadCommandSurface">
+                    <OfficeTab id="TabDefault">
+                        <Group id="msgReadGroup" SupportsPinning="true">
+                            <Label resid="GroupLabel"/>
 
-    <!-- Version Overrides for modern UI -->
-    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+                            <!-- Button to open Task Pane -->
+                            <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                                <Label resid="TaskPaneButton.Label"/>
+                                <Supertip>
+                                    <Title resid="TaskPaneButton.Label"/>
+                                    <Description resid="TaskPaneButton.Tooltip"/>
+                                </Supertip>
+                                <Icon>
+                                    <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                </Icon>
+                                <Action xsi:type="ShowTaskpane">
+                                    <SourceLocation resid="Taskpane.Url"/>
+                                </Action>
+                            </Control>
 
-        <Requirements>
-            <bt:Sets DefaultMinVersion="1.5" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
-                <bt:Set Name="Mailbox"/>
-            </bt:Sets>
-        </Requirements>
+                            <!-- InboxAgent Button (shows alert) -->
+                            <Control xsi:type="Button" id="msgReadAlertButton">
+                                <Label resid="AlertButton.Label"/>
+                                <Supertip>
+                                    <Title resid="AlertButton.Label"/>
+                                    <Description resid="AlertButton.Tooltip"/>
+                                </Supertip>
+                                <Icon>
+                                    <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                </Icon>
+                                <Action xsi:type="ExecuteFunction">
+                                    <FunctionName>showAlert</FunctionName>
+                                </Action>
+                            </Control>
 
-        <Hosts>
-            <Host xsi:type="MailHost">
+                        </Group>
+                    </OfficeTab>
+                </ExtensionPoint>
 
-                <!-- Desktop Form Factor -->
-                <DesktopFormFactor>
+                <!-- Extension point for message compose mode -->
+                <ExtensionPoint xsi:type="MessageComposeCommandSurface">
+                    <OfficeTab id="TabDefault">
+                        <Group id="msgComposeGroup" SupportsPinning="true">
+                            <Label resid="GroupLabel"/>
 
-                    <!-- Function file for commands -->
-                    <FunctionFile resid="Commands.Url"/>
+                            <!-- Button to open Task Pane -->
+                            <Control xsi:type="Button" id="msgComposeOpenPaneButton">
+                                <Label resid="TaskPaneButton.Label"/>
+                                <Supertip>
+                                    <Title resid="TaskPaneButton.Label"/>
+                                    <Description resid="TaskPaneButton.Tooltip"/>
+                                </Supertip>
+                                <Icon>
+                                    <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                </Icon>
+                                <Action xsi:type="ShowTaskpane">
+                                    <SourceLocation resid="Taskpane.Url"/>
+                                </Action>
+                            </Control>
 
-                    <!-- Extension point for message read mode (when viewing an email) -->
-                    <ExtensionPoint xsi:type="MessageReadCommandSurface">
-                        <OfficeTab id="TabDefault">
-                            <Group id="msgReadGroup">
-                                <Label resid="GroupLabel"/>
+                            <!-- InboxAgent Button (shows alert) -->
+                            <Control xsi:type="Button" id="msgComposeAlertButton">
+                                <Label resid="AlertButton.Label"/>
+                                <Supertip>
+                                    <Title resid="AlertButton.Label"/>
+                                    <Description resid="AlertButton.Tooltip"/>
+                                </Supertip>
+                                <Icon>
+                                    <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                </Icon>
+                                <Action xsi:type="ExecuteFunction">
+                                    <FunctionName>showAlert</FunctionName>
+                                </Action>
+                            </Control>
 
-                                <!-- Button to open Task Pane -->
-                                <Control xsi:type="Button" id="msgReadOpenPaneButton">
-                                    <Label resid="TaskPaneButton.Label"/>
-                                    <Supertip>
-                                        <Title resid="TaskPaneButton.Label"/>
-                                        <Description resid="TaskPaneButton.Tooltip"/>
-                                    </Supertip>
-                                    <Icon>
-                                        <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                    </Icon>
-                                    <Action xsi:type="ShowTaskpane">
-                                        <SourceLocation resid="Taskpane.Url"/>
-                                    </Action>
-                                </Control>
+                        </Group>
+                    </OfficeTab>
+                </ExtensionPoint>
 
-                                <!-- InboxAgent Button (shows alert) -->
-                                <Control xsi:type="Button" id="msgReadAlertButton">
-                                    <Label resid="AlertButton.Label"/>
-                                    <Supertip>
-                                        <Title resid="AlertButton.Label"/>
-                                        <Description resid="AlertButton.Tooltip"/>
-                                    </Supertip>
-                                    <Icon>
-                                        <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                    </Icon>
-                                    <Action xsi:type="ExecuteFunction">
-                                        <FunctionName>showAlert</FunctionName>
-                                    </Action>
-                                </Control>
+            </DesktopFormFactor>
+        </Host>
+    </Hosts>
 
-                            </Group>
-                        </OfficeTab>
-                    </ExtensionPoint>
-
-                    <!-- Extension point for message compose mode -->
-                    <ExtensionPoint xsi:type="MessageComposeCommandSurface">
-                        <OfficeTab id="TabDefault">
-                            <Group id="msgComposeGroup">
-                                <Label resid="GroupLabel"/>
-
-                                <!-- Button to open Task Pane -->
-                                <Control xsi:type="Button" id="msgComposeOpenPaneButton">
-                                    <Label resid="TaskPaneButton.Label"/>
-                                    <Supertip>
-                                        <Title resid="TaskPaneButton.Label"/>
-                                        <Description resid="TaskPaneButton.Tooltip"/>
-                                    </Supertip>
-                                    <Icon>
-                                        <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                    </Icon>
-                                    <Action xsi:type="ShowTaskpane">
-                                        <SourceLocation resid="Taskpane.Url"/>
-                                    </Action>
-                                </Control>
-
-                                <!-- InboxAgent Button (shows alert) -->
-                                <Control xsi:type="Button" id="msgComposeAlertButton">
-                                    <Label resid="AlertButton.Label"/>
-                                    <Supertip>
-                                        <Title resid="AlertButton.Label"/>
-                                        <Description resid="AlertButton.Tooltip"/>
-                                    </Supertip>
-                                    <Icon>
-                                        <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                        <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
-                                    </Icon>
-                                    <Action xsi:type="ExecuteFunction">
-                                        <FunctionName>showAlert</FunctionName>
-                                    </Action>
-                                </Control>
-
-                            </Group>
-                        </OfficeTab>
-                    </ExtensionPoint>
-
-                </DesktopFormFactor>
-            </Host>
-        </Hosts>
-
-        <!-- Resources -->
-        <Resources>
-            <bt:Images xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
-                <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
-                <bt:Image id="Icon.32x32" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
-                <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
-            </bt:Images>
-            <bt:Urls xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
-                <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
-                <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
-            </bt:Urls>
-            <bt:ShortStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
-                <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
-                <bt:String id="TaskPaneButton.Label" DefaultValue="My Task"/>
-                <bt:String id="AlertButton.Label" DefaultValue="InboxAgent"/>
-            </bt:ShortStrings>
-            <bt:LongStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
-                <bt:String id="TaskPaneButton.Tooltip" DefaultValue="Opens the task pane to view user information and reports"/>
-                <bt:String id="AlertButton.Tooltip" DefaultValue="Click to show alert"/>
-            </bt:LongStrings>
-        </Resources>
-    </VersionOverrides>
-
-</OfficeApp>
+    <!-- Resources section remains the same -->
+    <Resources>
+        <bt:Images xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+            <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
+            <bt:Image id="Icon.32x32" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
+            <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
+        </bt:Images>
+        <bt:Urls xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+            <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
+            <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
+        </bt:Urls>
+        <bt:ShortStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+            <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
+            <bt:String id="TaskPaneButton.Label" DefaultValue="My Task"/>
+            <bt:String id="AlertButton.Label" DefaultValue="InboxAgent"/>
+        </bt:ShortStrings>
+        <bt:LongStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+            <bt:String id="TaskPaneButton.Tooltip" DefaultValue="Opens the task pane to view user information and reports"/>
+            <bt:String id="AlertButton.Tooltip" DefaultValue="Click to show alert"/>
+        </bt:LongStrings>
+    </Resources>
+</VersionOverrides>
