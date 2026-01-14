@@ -17,7 +17,7 @@
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
     <SupportUrl DefaultValue="https://www.contoso.com/help"/>
 
-    <!-- App Domains (optional, but good to include if needed) -->
+    <!-- App Domains -->
     <AppDomains>
         <AppDomain>https://jamesladd.github.io</AppDomain>
     </AppDomains>
@@ -52,21 +52,23 @@
         <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
     </Rule>
 
-    <!-- DisableEntityHighlighting (optional) -->
+    <!-- DisableEntityHighlighting -->
     <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
     <!-- Version Overrides for modern UI -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+
+        <!-- Add the bt namespace here for officeappbasictypes -->
         <Requirements>
-            <Sets>
-                <Set Name="Mailbox" MinVersion="1.5"/>
-            </Sets>
+            <bt:Sets DefaultMinVersion="1.5">
+                <bt:Set Name="Mailbox"/>
+            </bt:Sets>
         </Requirements>
 
         <Hosts>
             <Host xsi:type="MailHost">
 
-                <!-- Task pane extension point -->
+                <!-- Desktop Form Factor -->
                 <DesktopFormFactor>
 
                     <!-- Function file for commands -->
