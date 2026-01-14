@@ -79,7 +79,24 @@
                             <Group id="msgReadGroup">
                                 <Label resid="GroupLabel"/>
 
-                                <!-- InboxAgent Button in Message Read (shows with Forward/Reply) -->
+                                <!-- Button to open Task Pane -->
+                                <Control xsi:type="Button" id="msgReadOpenPaneButton">
+                                    <Label resid="TaskPaneButton.Label"/>
+                                    <Supertip>
+                                        <Title resid="TaskPaneButton.Label"/>
+                                        <Description resid="TaskPaneButton.Tooltip"/>
+                                    </Supertip>
+                                    <Icon>
+                                        <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                        <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                        <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    </Icon>
+                                    <Action xsi:type="ShowTaskpane">
+                                        <SourceLocation resid="Taskpane.Url"/>
+                                    </Action>
+                                </Control>
+
+                                <!-- InboxAgent Button (shows alert) -->
                                 <Control xsi:type="Button" id="msgReadAlertButton">
                                     <Label resid="AlertButton.Label"/>
                                     <Supertip>
@@ -106,7 +123,24 @@
                             <Group id="msgComposeGroup">
                                 <Label resid="GroupLabel"/>
 
-                                <!-- InboxAgent Button in compose mode -->
+                                <!-- Button to open Task Pane -->
+                                <Control xsi:type="Button" id="msgComposeOpenPaneButton">
+                                    <Label resid="TaskPaneButton.Label"/>
+                                    <Supertip>
+                                        <Title resid="TaskPaneButton.Label"/>
+                                        <Description resid="TaskPaneButton.Tooltip"/>
+                                    </Supertip>
+                                    <Icon>
+                                        <bt:Image size="16" resid="Icon.16x16" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                        <bt:Image size="32" resid="Icon.32x32" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                        <bt:Image size="80" resid="Icon.80x80" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"/>
+                                    </Icon>
+                                    <Action xsi:type="ShowTaskpane">
+                                        <SourceLocation resid="Taskpane.Url"/>
+                                    </Action>
+                                </Control>
+
+                                <!-- InboxAgent Button (shows alert) -->
                                 <Control xsi:type="Button" id="msgComposeAlertButton">
                                     <Label resid="AlertButton.Label"/>
                                     <Supertip>
@@ -144,12 +178,12 @@
             </bt:Urls>
             <bt:ShortStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
                 <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
+                <bt:String id="TaskPaneButton.Label" DefaultValue="My Task"/>
                 <bt:String id="AlertButton.Label" DefaultValue="InboxAgent"/>
-                <bt:String id="HomeButton.Label" DefaultValue="InboxAgent"/>
             </bt:ShortStrings>
             <bt:LongStrings xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0">
+                <bt:String id="TaskPaneButton.Tooltip" DefaultValue="Opens the task pane to view user information and reports"/>
                 <bt:String id="AlertButton.Tooltip" DefaultValue="Click to show alert"/>
-                <bt:String id="HomeButton.Tooltip" DefaultValue="Opens the InboxAgent task pane"/>
             </bt:LongStrings>
         </Resources>
     </VersionOverrides>
