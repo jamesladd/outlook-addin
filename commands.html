@@ -9,11 +9,24 @@
 </head>
 <body>
 <script>
-  // Initialize Office.js for command functions
+  // Initialize Office.js
   Office.onReady(() => {
-    // Commands are handled through the manifest
-    // This file is required but minimal for task pane buttons
+    console.log('Commands.html loaded and ready');
   });
+
+  // Function to show alert when InboxAgent button is clicked
+  function showAlert(event) {
+    // Show alert
+    alert("You clicked");
+
+    // Let Office know the command is complete
+    if (event) {
+      event.completed();
+    }
+  }
+
+  // Register the function
+  Office.actions.associate("showAlert", showAlert);
 </script>
 </body>
 </html>

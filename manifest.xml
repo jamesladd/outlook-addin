@@ -11,7 +11,7 @@
     <Version>1.0.0.0</Version>
     <ProviderName>My Company</ProviderName>
     <DefaultLocale>en-US</DefaultLocale>
-    <DisplayName DefaultValue="My Task Add-in"/>
+    <DisplayName DefaultValue="InboxAgent"/>
     <Description DefaultValue="An add-in that displays user info and report data"/>
     <IconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/favicon-144x144.png"/>
@@ -57,7 +57,6 @@
 
     <!-- Version Overrides for modern UI -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides"
-                      xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
                       xsi:type="VersionOverridesV1_0">
 
         <Requirements>
@@ -75,26 +74,26 @@
                     <!-- Function file for commands -->
                     <FunctionFile resid="Commands.Url"/>
 
-                    <!-- Extension point for message read mode -->
+                    <!-- Extension point for message read mode (when viewing an email) -->
                     <ExtensionPoint xsi:type="MessageReadCommandSurface">
                         <OfficeTab id="TabDefault">
                             <Group id="msgReadGroup">
                                 <Label resid="GroupLabel"/>
 
-                                <!-- My Task Button in Ribbon -->
-                                <Control xsi:type="Button" id="msgReadOpenPaneButton">
-                                    <Label resid="TaskPaneButton.Label"/>
+                                <!-- InboxAgent Button in Message Read (shows with Forward/Reply) -->
+                                <Control xsi:type="Button" id="msgReadAlertButton">
+                                    <Label resid="AlertButton.Label"/>
                                     <Supertip>
-                                        <Title resid="TaskPaneButton.Label"/>
-                                        <Description resid="TaskPaneButton.Tooltip"/>
+                                        <Title resid="AlertButton.Label"/>
+                                        <Description resid="AlertButton.Tooltip"/>
                                     </Supertip>
                                     <Icon>
                                         <bt:Image size="16" resid="Icon.16x16"/>
                                         <bt:Image size="32" resid="Icon.32x32"/>
                                         <bt:Image size="80" resid="Icon.80x80"/>
                                     </Icon>
-                                    <Action xsi:type="ShowTaskpane">
-                                        <SourceLocation resid="Taskpane.Url"/>
+                                    <Action xsi:type="ExecuteFunction">
+                                        <FunctionName>showAlert</FunctionName>
                                     </Action>
                                 </Control>
 
@@ -108,25 +107,57 @@
                             <Group id="msgComposeGroup">
                                 <Label resid="GroupLabel"/>
 
-                                <!-- My Button in compose mode -->
-                                <Control xsi:type="Button" id="msgComposeOpenPaneButton">
-                                    <Label resid="TaskPaneButton.Label"/>
+                                <!-- InboxAgent Button in compose mode -->
+                                <Control xsi:type="Button" id="msgComposeAlertButton">
+                                    <Label resid="AlertButton.Label"/>
                                     <Supertip>
-                                        <Title resid="TaskPaneButton.Label"/>
-                                        <Description resid="TaskPaneButton.Tooltip"/>
+                                        <Title resid="AlertButton.Label"/>
+                                        <Description resid="AlertButton.Tooltip"/>
                                     </Supertip>
                                     <Icon>
                                         <bt:Image size="16" resid="Icon.16x16"/>
                                         <bt:Image size="32" resid="Icon.32x32"/>
                                         <bt:Image size="80" resid="Icon.80x80"/>
                                     </Icon>
-                                    <Action xsi:type="ShowTaskpane">
-                                        <SourceLocation resid="Taskpane.Url"/>
+                                    <Action xsi:type="ExecuteFunction">
+                                        <FunctionName>showAlert</FunctionName>
                                     </Action>
                                 </Control>
 
                             </Group>
                         </OfficeTab>
+                    </ExtensionPoint>
+
+                    <!-- Extension point for Module (Outlook Home/Main ribbon) -->
+                    <ExtensionPoint xsi:type="Module">
+                        <SourceLocation resid="Taskpane.Url"/>
+                        <Label resid="ModuleLabel"/>
+                        <CommandSurface>
+                            <CustomTab id="InboxAgentTab">
+                                <Group id="InboxAgentGroup">
+                                    <Label resid="GroupLabel"/>
+
+                                    <!-- InboxAgent Button in Main Ribbon (Outlook Home) -->
+                                    <Control xsi:type="Button" id="InboxAgentHomeButton">
+                                        <Label resid="HomeButton.Label"/>
+                                        <Supertip>
+                                            <Title resid="HomeButton.Label"/>
+                                            <Description resid="HomeButton.Tooltip"/>
+                                        </Supertip>
+                                        <Icon>
+                                            <bt:Image size="16" resid="Icon.16x16"/>
+                                            <bt:Image size="32" resid="Icon.32x32"/>
+                                            <bt:Image size="80" resid="Icon.80x80"/>
+                                        </Icon>
+                                        <Action xsi:type="ShowTaskpane">
+                                            <SourceLocation resid="Taskpane.Url"/>
+                                        </Action>
+                                    </Control>
+
+                                </Group>
+                                <Label resid="TabLabel"/>
+                            </CustomTab>
+                        </CommandSurface>
                     </ExtensionPoint>
 
                 </DesktopFormFactor>
@@ -145,11 +176,15 @@
                 <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
             </bt:Urls>
             <bt:ShortStrings>
-                <bt:String id="GroupLabel" DefaultValue="My Task Group"/>
-                <bt:String id="TaskPaneButton.Label" DefaultValue="My Task"/>
+                <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
+                <bt:String id="AlertButton.Label" DefaultValue="InboxAgent"/>
+                <bt:String id="HomeButton.Label" DefaultValue="InboxAgent"/>
+                <bt:String id="ModuleLabel" DefaultValue="InboxAgent"/>
+                <bt:String id="TabLabel" DefaultValue="InboxAgent"/>
             </bt:ShortStrings>
             <bt:LongStrings>
-                <bt:String id="TaskPaneButton.Tooltip" DefaultValue="Opens the My Task pane to view user information and reports"/>
+                <bt:String id="AlertButton.Tooltip" DefaultValue="Click to show alert"/>
+                <bt:String id="HomeButton.Tooltip" DefaultValue="Opens the InboxAgent task pane"/>
             </bt:LongStrings>
         </Resources>
     </VersionOverrides>
