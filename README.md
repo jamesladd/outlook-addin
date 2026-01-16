@@ -1,98 +1,41 @@
-Detailed Explanation
-What I Created:
-1. manifest.xml - The Add-in Definition
-   This is the core configuration file that defines the Outlook add-in:
+Additional Files Needed
+7. Icon Files (Create simple placeholder icons or use your own)
+   You'll need to create the following icon files in an assets folder:
 
-Identity & Metadata: Unique ID, version, name, and description
-Permissions: Set to ReadWriteMailbox to access user profile and mailbox data
-ExtensionPoints:
+icon-16.png (16x16 pixels)
+icon-32.png (32x32 pixels)
+icon-64.png (64x64 pixels)
+icon-80.png (80x80 pixels)
+icon-128.png (128x128 pixels)
 
-MessageReadCommandSurface: Adds "My Task" button to the ribbon when reading emails
-MessageComposeCommandSurface: Adds "My Button" when composing emails
+Deployment Instructions
 
+Update the manifest.xml:
 
-Actions: Both buttons open the same task pane (ShowTaskpane action)
-Resources: Defines button labels, tooltips, and file locations
-
-2. taskpane.html - The User Interface
-   The HTML structure includes:
-
-Header: Displays "My Task Pane" title with blue background
-User Information Section: Shows email, name, role, permissions, and mailboxes
-Report Section: Contains a table for API data
-Done Button: At the bottom to close the pane
-Loading State: Shows while data is being fetched
-
-3. taskpane.css - Styling
-   Clean, professional styling with:
-
-Modern color scheme (blue #0078d4 primary color)
-Responsive design that works on different screen sizes
-Clear visual hierarchy with sections and borders
-Hover effects on table rows and buttons
-Professional typography using Segoe UI font
-
-4. taskpane.js - The Functionality
-   JavaScript handles all the logic:
-   Office.onReady():
-
-Initializes when Office.js is loaded
-Sets up the Done button click handler
-Calls functions to load data
-
-loadUserInformation():
-
-Accesses Office.context.mailbox.userProfile to get:
-
-Email address
-Display name
-Account type
+Change the <Id> to a unique GUID
+Update URLs from https://localhost:3000 to your hosting location
+Update ProviderName and SupportUrl
 
 
-Detects available permissions
-Lists mailboxes (primary mailbox shown)
-Handles errors gracefully
+Host the files:
 
-loadReportData():
-
-Makes async fetch request to the API endpoint
-Uses Basic authentication with provided token
-Parses JSON response
-Dynamically populates HTML table with data
-Handles various response formats
-Shows error messages if request fails
-
-closeTaskPane():
-
-Attempts to close the task pane programmatically
-Falls back to alerting user to close manually (limitation of Outlook Web Add-ins)
-
-5. commands.html - Function File
-   Required by the manifest for hosting UI-less commands. Minimal implementation since we only use task pane buttons.
-   Key Features Implemented:
-   ✅ "My Task" button in Ribbon - Added via MessageReadCommandSurface
-   ✅ "My Button" when viewing email - Added via MessageComposeCommandSurface
-   ✅ Task Pane opens on click - ShowTaskpane action
-   ✅ "My Task Pane" title - Header in HTML
-   ✅ Current user email - Via Office.context.mailbox.userProfile
-   ✅ List of mailboxes - Primary mailbox shown
-   ✅ User details - Name, role, permissions displayed
-   ✅ Done button - Closes pane (with fallback message)
-   ✅ API data table - Fetches and displays report_emails data
-   ✅ Basic authentication - Uses provided credentials
-   ✅ Clean, simple code - Minimal JS/CSS with comments
-   How to Deploy:
-
-Host the files on a web server (localhost or any HTTPS server)
-Update URLs in manifest.xml to match your server
-Add icons (icon-16.png, icon-32.png, icon-64.png, icon-80.png) to /assets folder
-Sideload the add-in in Outlook Web:
-
-Go to Outlook on the web
-Settings > View all Outlook settings > General > Manage add-ins
-Click "+ Add from file" and upload manifest.xml
+Host all HTML, CSS, and JS files on a web server with HTTPS
+Host icon files in an assets folder
 
 
-Test by opening an email and clicking "My Task" button
+Sideload the add-in:
 
-The add-in follows Microsoft's latest best practices for Outlook Web Add-ins using the VersionOverrides schema and Office.js API v1.5+.
+In Outlook, go to Get Add-ins
+Click "My add-ins" → "Add a custom add-in" → "Add from file"
+Select your manifest.xml file
+
+
+
+Features Verification
+✅ InboxAgent Task Button - Added to Mail Ribbon (opens task pane)
+✅ InboxAgent Action Button - Added next to Forward button (shows subject notification)
+✅ Task Pane - Contains "InboxAgent Tasks" title and interactive features
+✅ Subject Display - Shows subject in notification when Action button is clicked
+✅ Schema Validation - Manifest uses correct v1.1 schemas and structure
+The manifest has been validated against the Office Add-in schemas and includes proper namespace declarations for version 1.1 functionality.Add to Conversation
+

@@ -4,87 +4,45 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>My Task Pane</title>
+    <title>InboxAgent Task Pane</title>
 
-    <!-- Office.js library -->
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
 
+    <!-- Task Pane Styles -->
     <link rel="stylesheet" href="taskpane.css">
 </head>
 
 <body>
 <div class="container">
-    <!-- Header -->
     <header>
-        <h1>My Task Pane</h1>
+        <h1>InboxAgent Tasks</h1>
     </header>
 
-    <!-- Main content area -->
     <main>
-        <!-- Loading indicator -->
-        <div id="loading">Loading user information...</div>
-
-        <!-- User information section -->
-        <section id="userInfo" style="display:none;">
-            <h2>User Information</h2>
-
-            <!-- Email address -->
-            <div class="info-group">
-                <label>Email Address:</label>
-                <div id="userEmail" class="info-value">-</div>
-            </div>
-
-            <!-- User details -->
-            <div class="info-group">
-                <label>Name:</label>
-                <div id="userName" class="info-value">-</div>
-            </div>
-
-            <div class="info-group">
-                <label>Role:</label>
-                <div id="userRole" class="info-value">-</div>
-            </div>
-
-            <div class="info-group">
-                <label>Permissions:</label>
-                <div id="userPermissions" class="info-value">-</div>
-            </div>
-
-            <!-- Mailboxes -->
-            <div class="info-group">
-                <label>Available Mailboxes:</label>
-                <ul id="mailboxList" class="info-value"></ul>
+        <section class="task-section">
+            <h2>Email Information</h2>
+            <div id="email-info">
+                <p>Select an email to view information</p>
             </div>
         </section>
 
-        <!-- Report data section -->
-        <section id="reportSection" style="display:none;">
-            <h2>Email Reports</h2>
-            <div id="reportError" class="error" style="display:none;"></div>
-            <div id="reportTableContainer">
-                <table id="reportTable">
-                    <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Subject</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                    </tr>
-                    </thead>
-                    <tbody id="reportTableBody">
-                    <!-- Data will be populated here -->
-                    </tbody>
-                </table>
-            </div>
+        <section class="task-section">
+            <h2>Quick Actions</h2>
+            <button id="get-subject-btn" class="action-button">Get Email Subject</button>
+            <button id="get-sender-btn" class="action-button">Get Sender Info</button>
         </section>
 
-        <!-- Done button -->
-        <div class="button-container">
-            <button id="doneButton" class="primary-button">Done</button>
-        </div>
+        <section class="task-section">
+            <h2>Results</h2>
+            <div id="results" class="results-box">
+                Results will appear here...
+            </div>
+        </section>
     </main>
 </div>
 
-<script src="taskpane.js"></script>
+<!-- Task Pane JavaScript -->
+<script type="text/javascript" src="taskpane.js"></script>
 </body>
 </html>

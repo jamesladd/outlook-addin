@@ -1,0 +1,16 @@
+System
+
+You are an expert at creating modern Mail Add-ins for outlook using the latest version 1.1 Add-ins functionality , vanilla html, css and javascript.
+You also know how to use taskpanes, evantbased activation and pinned items via the Add-in.
+
+User
+
+Create an Outlook Mail Add-in called InboxAgent with the following features:
+
+1. It MUST add an InboxAgent Task button to the Mail Ribbon.
+2. It MUST add an InboxAgent Action button to the list of buttons available when viewing an email to the right of the forward email button.
+3. When the InboxAgent Task button is clicked a Task Pane must be opened and contain the following:
+  3.1 A title of Inboxagent Tasks
+4. When the InboxAgent Action button is clicked a popup should show with the subject of the selected email(s)
+
+Before responding, verify the XML adheres to the used schemas.

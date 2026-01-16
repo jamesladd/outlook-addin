@@ -4,29 +4,13 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
 
-    <!-- Office.js library -->
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+
+    <!-- Commands JavaScript -->
+    <script type="text/javascript" src="commands.js"></script>
 </head>
 <body>
-<script>
-  // Initialize Office.js
-  Office.onReady(() => {
-    console.log('Commands.html loaded and ready');
-  });
-
-  // Function to show alert when InboxAgent button is clicked
-  function showAlert(event) {
-    // Show alert
-    alert("You clicked");
-
-    // Let Office know the command is complete
-    if (event) {
-      event.completed();
-    }
-  }
-
-  // Register the function
-  Office.actions.associate("showAlert", showAlert);
-</script>
+<!-- This page is used only for loading the commands.js file -->
 </body>
 </html>
