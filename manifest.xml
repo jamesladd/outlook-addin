@@ -203,7 +203,7 @@
 
                     <!-- Runtimes at Host level in 1.1 -->
                     <Runtimes>
-                        <Runtime resid="Runtime.Url">
+                        <Runtime resid="WebViewRuntime.Url">
                             <Override type="javascript" resid="JSRuntime.Url"/>
                         </Runtime>
                     </Runtimes>
@@ -337,7 +337,7 @@
                 </Host>
             </Hosts>
 
-            <!-- Resources for 1.1 - MUST include ALL resid values used above -->
+            <!-- Resources for 1.1 -->
             <Resources>
                 <bt:Images>
                     <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
@@ -345,7 +345,7 @@
                     <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-80.png"/>
                 </bt:Images>
                 <bt:Urls>
-                    <bt:Url id="Runtime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
+                    <bt:Url id="WebViewRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
                     <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
