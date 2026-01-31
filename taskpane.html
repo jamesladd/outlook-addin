@@ -3,134 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InboxAgent Taskpane</title>
-    <link rel="stylesheet" href="taskpane.css">
+    <title>InboxAgent Task Pane</title>
+    <link rel="stylesheet" href="https://jamesladd.github.io/outlook-addin/taskpane.css">
 
-    <!-- Office.js Library -->
+    <!-- Office.js library -->
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
 </head>
 <body>
 <div class="container">
-    <header class="header">
-        <div class="logo">
-            <svg width="32" height="32" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="14" fill="#0078d4"/>
-                <path d="M16 8 L16 24 M8 16 L24 16" stroke="white" stroke-width="2"/>
-            </svg>
-        </div>
-        <h1 class="title">InboxAgent</h1>
-        <div class="status-indicator" id="statusIndicator">
-            <span class="status-dot"></span>
-            <span class="status-text">Active</span>
-        </div>
+    <header>
+        <h1>📧 InboxAgent</h1>
+        <p class="subtitle">Email Activity Monitor & Tracker</p>
     </header>
 
-    <main class="main-content">
-        <section class="info-section">
-            <h2>Current Item Information</h2>
-            <div class="info-card" id="itemInfo">
-                <div class="info-row">
-                    <span class="info-label">Type:</span>
-                    <span class="info-value" id="itemType">Loading...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Subject:</span>
-                    <span class="info-value" id="itemSubject">Loading...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Mode:</span>
-                    <span class="info-value" id="itemMode">Loading...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Item ID:</span>
-                    <span class="info-value info-id" id="itemId">Loading...</span>
-                </div>
-            </div>
-        </section>
+    <section class="current-item">
+        <h2>Current Item</h2>
+        <div id="currentItemInfo" class="info-box">
+            <p class="loading">Loading item information...</p>
+        </div>
+    </section>
 
-        <section class="event-section">
-            <div class="section-header">
-                <h2>Event Monitor</h2>
-                <div class="event-controls">
-                    <button class="btn btn-secondary" id="clearEventsBtn">Clear</button>
-                    <button class="btn btn-secondary" id="exportEventsBtn">Export</button>
-                </div>
-            </div>
-            <div class="event-stats">
-                <div class="stat-card">
-                    <span class="stat-number" id="totalEvents">0</span>
-                    <span class="stat-label">Total Events</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="activeListeners">0</span>
-                    <span class="stat-label">Active Listeners</span>
-                </div>
-            </div>
-            <div class="event-log-container">
-                <div class="event-log" id="eventLog">
-                    <div class="event-placeholder">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <p>Waiting for events...</p>
-                        <small>Events will appear here as they occur</small>
-                    </div>
-                </div>
-            </div>
-        </section>
+    <section class="event-log">
+        <div class="section-header">
+            <h2>Event Log</h2>
+            <button id="clearLog" class="btn-clear">Clear Log</button>
+        </div>
+        <div id="eventLogContainer" class="log-container">
+            <p class="placeholder">Waiting for events...</p>
+        </div>
+    </section>
 
-        <section class="actions-section">
-            <h2>Quick Actions</h2>
-            <div class="action-buttons">
-                <button class="btn btn-primary" id="refreshBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Refresh Info
-                </button>
-                <button class="btn btn-primary" id="testEventBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Test Event
-                </button>
-                <button class="btn btn-primary" id="getPropertiesBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Get Properties
-                </button>
-            </div>
-        </section>
+    <section class="actions">
+        <h2>Actions</h2>
+        <div class="button-group">
+            <button id="trackReply" class="btn-action">Track Reply</button>
+            <button id="trackForward" class="btn-action">Track Forward</button>
+            <button id="trackReplyAll" class="btn-action">Track Reply All</button>
+        </div>
+        <div class="button-group">
+            <button id="refreshItem" class="btn-action">Refresh Item</button>
+            <button id="getProperties" class="btn-action">Get Properties</button>
+        </div>
+    </section>
 
-        <section class="settings-section">
-            <h2>Settings</h2>
-            <div class="setting-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="verboseLogging" checked>
-                    <span>Verbose Logging</span>
-                </label>
+    <section class="statistics">
+        <h2>Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalEvents">0</div>
+                <div class="stat-label">Total Events</div>
             </div>
-            <div class="setting-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="autoScroll" checked>
-                    <span>Auto-scroll Event Log</span>
-                </label>
+            <div class="stat-card">
+                <div class="stat-value" id="sendEvents">0</div>
+                <div class="stat-label">Send Events</div>
             </div>
-            <div class="setting-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="timestampEvents" checked>
-                    <span>Timestamp Events</span>
-                </label>
+            <div class="stat-card">
+                <div class="stat-value" id="changeEvents">0</div>
+                <div class="stat-label">Change Events</div>
             </div>
-        </section>
-    </main>
+            <div class="stat-card">
+                <div class="stat-value" id="userActions">0</div>
+                <div class="stat-label">User Actions</div>
+            </div>
+        </div>
+    </section>
 
-    <footer class="footer">
-        <p>InboxAgent v1.0.0 | Pinnable Taskpane Active</p>
+    <footer>
+        <p class="version">InboxAgent v1.0.0 | Status: <span id="status" class="status-active">Active</span></p>
     </footer>
 </div>
 
-<script src="taskpane.js"></script>
+<script type="text/javascript" src="https://jamesladd.github.io/outlook-addin/taskpane.js"></script>
 </body>
 </html>
