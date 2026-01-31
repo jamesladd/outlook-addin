@@ -246,6 +246,52 @@ function deepCopyArray(arr) {
   return JSON.parse(JSON.stringify(arr));
 }
 
+// Helper function to compare arrays of category objects
+function categoriesEqual(a, b) {
+  // Handle null/undefined cases
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+
+  // Check length first
+  if (a.length !== b.length) {
+    console.log('Categories different length:', a.length, 'vs', b.length);
+    return false;
+  }
+
+  // If both empty, they're equal
+  if (a.length === 0) return true;
+
+  // Compare by converting to sorted JSON strings
+  // Sort by displayName to ensure consistent ordering
+  const sortedA = [...a].sort((x, y) =>
+    (x.displayName || '').localeCompare(y.displayName || '')
+  );
+  const sortedB = [...b].sort((x, y) =>
+    (x.displayName || '').localeCompare(y.displayName || '')
+  );
+
+  const jsonA = JSON.stringify(sortedA);
+  const jsonB = JSON.stringify(sortedB);
+
+  const isEqual = jsonA === jsonB;
+
+  console.log('Category comparison:', {
+    aCount: a.length,
+    bCount: b.length,
+    jsonA: jsonA,
+    jsonB: jsonB,
+    isEqual: isEqual
+  });
+
+  return isEqual;
+}
+
+// Extract just the category names for comparison and display
+function getCategoryNames(categories) {
+  if (!categories) return [];
+  return categories.map(cat => cat.displayName || cat);
+}
+
 // Property Monitoring Functions
 function monitorItemProperties() {
   const item = Office.context.mailbox.item;
@@ -301,29 +347,49 @@ function monitorItemProperties() {
       console.log('Previous length:', previousCategories.length);
       console.log('Current length:', currentCategories.length);
 
-      // Check if actually different using our comparison function
-      const areEqual = arraysEqual(currentCategories, previousCategories);
-      console.log('Arrays equal?', areEqual);
+      // Check if actually different using category-aware comparison
+      const areEqual = categoriesEqual(currentCategories, previousCategories);
+      console.log('Categories equal?', areEqual);
 
       if (!areEqual) {
         console.log('%c🏷️ CATEGORIES CHANGED DETECTED!', 'color: #8b5cf6; font-size: 14px; font-weight: bold;');
 
-        // Calculate added and removed
-        const addedCategories = currentCategories.filter(c => !previousCategories.includes(c));
-        const removedCategories = previousCategories.filter(c => !currentCategories.includes(c));
+        // Get category names for easier comparison
+        const previousNames = getCategoryNames(previousCategories);
+        const currentNames = getCategoryNames(currentCategories);
 
+        console.log('Previous names:', previousNames);
+        console.log('Current names:', currentNames);
+
+        // Calculate added and removed by display name
+        const addedNames = currentNames.filter(name => !previousNames.includes(name));
+        const removedNames = previousNames.filter(name => !currentNames.includes(name));
+
+        // Get full category objects for added/removed
+        const addedCategories = currentCategories.filter(cat =>
+          addedNames.includes(cat.displayName || cat)
+        );
+        const removedCategories = previousCategories.filter(cat =>
+          removedNames.includes(cat.displayName || cat)
+        );
+
+        console.log('Added names:', addedNames);
+        console.log('Removed names:', removedNames);
         console.log('Added categories:', JSON.stringify(addedCategories));
         console.log('Removed categories:', JSON.stringify(removedCategories));
 
         // CRITICAL: Only log if there's an actual change
-        // Check that:
-        // 1. There are added OR removed categories
-        // 2. The added and removed are NOT the same (which would indicate a bug)
-        const hasChanges = addedCategories.length > 0 || removedCategories.length > 0;
-        const addedAndRemovedAreDifferent = !arraysEqual(addedCategories, removedCategories);
+        const hasAdditions = addedNames.length > 0;
+        const hasRemovals = removedNames.length > 0;
+        const hasChanges = hasAdditions || hasRemovals;
+
+        // Check that added and removed names are completely different
+        const addedAndRemovedAreDifferent = !arraysEqual(addedNames.sort(), removedNames.sort());
         const isValidChange = hasChanges && addedAndRemovedAreDifferent;
 
         console.log('Change validation:', {
+          hasAdditions: hasAdditions,
+          hasRemovals: hasRemovals,
           hasChanges: hasChanges,
           addedAndRemovedAreDifferent: addedAndRemovedAreDifferent,
           isValidChange: isValidChange
@@ -336,28 +402,30 @@ function monitorItemProperties() {
           console.log('✓ State updated to:', JSON.stringify(lastKnownState.categories));
 
           logEvent('CategoriesChanged', 'Email categories have been modified', {
-            previousCategories: previousCategories,
-            currentCategories: currentCategories,
-            added: addedCategories,
-            removed: removedCategories,
+            previousCategories: previousNames,
+            currentCategories: currentNames,
+            addedCategoryNames: addedNames,
+            removedCategoryNames: removedNames,
+            addedCategories: addedCategories,
+            removedCategories: removedCategories,
             itemId: item.itemId,
             subject: item.subject,
             timestamp: new Date().toISOString()
           });
 
           // Show notifications
-          if (addedCategories.length > 0) {
-            showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
+          if (addedNames.length > 0) {
+            showInAppNotification('🏷️ Category Added', addedNames.join(', '));
           }
-          if (removedCategories.length > 0) {
-            showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
+          if (removedNames.length > 0) {
+            showInAppNotification('🏷️ Category Removed', removedNames.join(', '));
           }
         } else {
           if (!addedAndRemovedAreDifferent) {
             console.error('❌ CRITICAL ERROR: Added and Removed categories are THE SAME!');
-            console.error('Added:', JSON.stringify(addedCategories));
-            console.error('Removed:', JSON.stringify(removedCategories));
-            console.error('This indicates the comparison logic is fundamentally broken');
+            console.error('Added names:', addedNames);
+            console.error('Removed names:', removedNames);
+            console.error('This indicates a false positive - categories are actually the same');
             console.error('Previous state:', JSON.stringify(previousCategories));
             console.error('Current state:', JSON.stringify(currentCategories));
 
@@ -368,7 +436,7 @@ function monitorItemProperties() {
             lastCategoryCheck = Date.now() + 10000; // Block checks for 10 seconds
 
             // Show error notification
-            showInAppNotification('⚠️ Monitoring Error', 'Category detection anomaly - monitoring paused for 10s');
+            showInAppNotification('⚠️ Monitoring Error', 'False positive detected - monitoring paused for 10s');
           } else {
             console.log('ℹ️ No actual changes detected (empty added and removed)');
             // Still update state to latest
