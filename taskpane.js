@@ -13,7 +13,8 @@ let lastKnownState = {
   importanceInitialized: false
 };
 let lastCategoryCheck = 0;
-const CATEGORY_CHECK_THROTTLE = 1500; // milliseconds
+const CATEGORY_CHECK_THROTTLE = 3000; // 3 seconds between checks
+let categoryCheckInProgress = false; // Prevent overlapping checks
 
 const STORAGE_KEY = 'InboxAgent_Events';
 
@@ -245,7 +246,6 @@ function deepCopyArray(arr) {
   return JSON.parse(JSON.stringify(arr));
 }
 
-// Update monitorItemProperties to include throttling for categories
 function monitorItemProperties() {
   const item = Office.context.mailbox.item;
 
@@ -264,80 +264,106 @@ function monitorItemProperties() {
     return;
   }
 
-  // Throttle category checks to prevent rapid-fire comparisons
+  // Throttle category checks
   const now = Date.now();
   if (now - lastCategoryCheck < CATEGORY_CHECK_THROTTLE) {
-    console.log('⏱️ Throttling category check (too soon)');
+    return; // Skip this check
+  }
+
+  // Prevent overlapping async calls
+  if (categoryCheckInProgress) {
+    console.log('⏳ Category check already in progress, skipping...');
     return;
   }
 
   // Monitor Categories
   if (item.categories) {
-    lastCategoryCheck = now; // Update timestamp before async call
+    categoryCheckInProgress = true;
+    lastCategoryCheck = now;
 
     item.categories.getAsync((result) => {
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        const currentCategories = result.value || [];
-        const previousCategories = lastKnownState.categories || [];
+      // Always clear the lock when done
+      categoryCheckInProgress = false;
 
-        // Detailed logging for debugging
-        console.log('Category Check:', {
-          previous: previousCategories,
-          current: currentCategories,
-          previousLength: previousCategories.length,
-          currentLength: currentCategories.length,
-          areEqual: arraysEqual(currentCategories, previousCategories)
-        });
+      if (result.status !== Office.AsyncResultStatus.Succeeded) {
+        console.error('Failed to get categories:', result.error);
+        return;
+      }
 
-        // Check if actually different
-        const categoriesChanged = !arraysEqual(currentCategories, previousCategories);
+      const currentCategories = result.value || [];
+      const previousCategories = lastKnownState.categories || [];
 
-        if (categoriesChanged) {
-          console.log('%c🏷️ CATEGORIES CHANGED!', 'color: #8b5cf6; font-size: 14px; font-weight: bold;');
-          console.log('Previous (length=' + previousCategories.length + '):', JSON.stringify(previousCategories));
-          console.log('Current (length=' + currentCategories.length + '):', JSON.stringify(currentCategories));
+      console.log('═══════════════════════════════════════');
+      console.log('CATEGORY CHECK at', new Date().toLocaleTimeString());
+      console.log('Previous:', JSON.stringify(previousCategories));
+      console.log('Current:', JSON.stringify(currentCategories));
+      console.log('Previous length:', previousCategories.length);
+      console.log('Current length:', currentCategories.length);
 
-          const addedCategories = currentCategories.filter(c => !previousCategories.includes(c));
-          const removedCategories = previousCategories.filter(c => !currentCategories.includes(c));
+      // Check if actually different using our comparison function
+      const areEqual = arraysEqual(currentCategories, previousCategories);
+      console.log('Arrays equal?', areEqual);
 
-          console.log('Added:', addedCategories);
-          console.log('Removed:', removedCategories);
+      if (!areEqual) {
+        console.log('%c🏷️ CATEGORIES CHANGED DETECTED!', 'color: #8b5cf6; font-size: 14px; font-weight: bold;');
 
-          // Only log if there's an actual difference
-          if (addedCategories.length > 0 || removedCategories.length > 0) {
-            logEvent('CategoriesChanged', 'Email categories have been modified', {
-              previousCategories: deepCopyArray(previousCategories),
-              currentCategories: deepCopyArray(currentCategories),
-              added: addedCategories,
-              removed: removedCategories,
-              itemId: item.itemId,
-              subject: item.subject
-            });
+        // Calculate added and removed
+        const addedCategories = currentCategories.filter(c => !previousCategories.includes(c));
+        const removedCategories = previousCategories.filter(c => !currentCategories.includes(c));
 
-            if (addedCategories.length > 0) {
-              showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
-            }
-            if (removedCategories.length > 0) {
-              showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
-            }
-          } else {
-            console.warn('⚠️ arraysEqual returned false but no actual diff - this should not happen');
-            console.warn('This might be a reference comparison issue');
+        console.log('Added categories:', JSON.stringify(addedCategories));
+        console.log('Removed categories:', JSON.stringify(removedCategories));
+
+        // CRITICAL: Only log if there's an actual change
+        if (addedCategories.length > 0 || removedCategories.length > 0) {
+
+          // Update state BEFORE logging the event to prevent loops
+          lastKnownState.categories = deepCopyArray(currentCategories);
+          console.log('✓ State updated to:', JSON.stringify(lastKnownState.categories));
+
+          logEvent('CategoriesChanged', 'Email categories have been modified', {
+            previousCategories: previousCategories,
+            currentCategories: currentCategories,
+            added: addedCategories,
+            removed: removedCategories,
+            itemId: item.itemId,
+            subject: item.subject,
+            timestamp: new Date().toISOString()
+          });
+
+          // Show notifications
+          if (addedCategories.length > 0) {
+            showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
           }
-        }
+          if (removedCategories.length > 0) {
+            showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
+          }
+        } else {
+          console.error('❌ ERROR: Categories marked as changed but no diff!');
+          console.error('This indicates a bug in the comparison logic');
+          console.error('Previous:', previousCategories);
+          console.error('Current:', currentCategories);
 
-        // Update stored state with a deep copy
+          // Force update state anyway to prevent loops
+          lastKnownState.categories = deepCopyArray(currentCategories);
+        }
+      } else {
+        console.log('✓ No category change detected');
+        // Update state even when no change to ensure we have latest
         lastKnownState.categories = deepCopyArray(currentCategories);
       }
+      console.log('═══════════════════════════════════════');
     });
   }
 
-  // Monitor Importance (keep existing code)
+  // Monitor Importance
   const currentImportance = item.importance;
 
   if (lastKnownState.importanceInitialized &&
     currentImportance !== lastKnownState.importance) {
     console.log('%c⚠️ IMPORTANCE CHANGED!', 'color: #f59e0b; font-size: 14px; font-weight: bold;');
+    console.log('Previous:', lastKnownState.importance);
+    console.log('Current:', currentImportance);
 
     const importanceNames = {
       0: 'Low',
@@ -365,11 +391,15 @@ function monitorItemProperties() {
 function resetMonitoringState(item) {
   console.log('🔄 Resetting monitoring state for new item');
 
+  // Clear the check lock
+  categoryCheckInProgress = false;
+  lastCategoryCheck = 0;
+
   // Clear all state
   lastKnownState = {
     itemId: item.itemId,
     importance: item.importance,
-    categories: null,
+    categories: [],
     categoriesInitialized: false,
     importanceInitialized: false
   };
@@ -383,14 +413,12 @@ function resetMonitoringState(item) {
         // Deep copy to prevent reference issues
         lastKnownState.categories = deepCopyArray(result.value || []);
 
-        console.log('✓ Initial categories captured:', lastKnownState.categories);
+        console.log('✓ Initial categories captured:', JSON.stringify(lastKnownState.categories));
+        console.log('✓ Category count:', lastKnownState.categories.length);
 
-        // Wait another 1 second before marking as initialized
-        // This ensures we don't catch the very next poll cycle
-        setTimeout(() => {
-          lastKnownState.categoriesInitialized = true;
-          console.log('✓ Categories monitoring now active');
-        }, 1000);
+        // Mark as initialized immediately - no delay needed with proper locking
+        lastKnownState.categoriesInitialized = true;
+        console.log('✓ Categories monitoring now active');
 
       } else {
         console.error('Failed to get initial categories:', result.error);
@@ -419,13 +447,12 @@ function startPropertyMonitoring() {
     resetMonitoringState(item);
 
     // Wait 2 seconds before starting polling to let initial state fully settle
-    // This gives time for the async categories.getAsync to complete
     setTimeout(() => {
-      // Poll every 2 seconds
-      monitoringInterval = setInterval(monitorItemProperties, 2000);
-      console.log('✓ Property monitoring active (polling every 2 seconds)');
+      // Poll every 3 seconds (increased from 2 to reduce race conditions)
+      monitoringInterval = setInterval(monitorItemProperties, 3000);
+      console.log('✓ Property monitoring active (polling every 3 seconds)');
 
-      // Log monitoring started (only after delay)
+      // Log monitoring started
       logEvent('MonitoringStarted', 'Started monitoring item properties', {
         itemId: item.itemId,
         itemType: item.itemType,
@@ -451,7 +478,9 @@ function stopPropertyMonitoring() {
     monitoringInterval = null;
     console.log('✓ Property monitoring stopped');
 
-    // Reset initialization flags
+    // Reset flags
+    categoryCheckInProgress = false;
+    lastCategoryCheck = 0;
     lastKnownState.categoriesInitialized = false;
     lastKnownState.importanceInitialized = false;
 
