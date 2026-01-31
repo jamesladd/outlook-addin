@@ -25,8 +25,8 @@
         </div>
     </header>
 
-    <!-- Pin Reminder Section -->
-    <section class="pin-reminder" id="pinReminder">
+    <!-- Pin Reminder -->
+    <section class="pin-reminder">
         <div class="reminder-content">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke-width="2"/>
@@ -34,13 +34,15 @@
             </svg>
             <div>
                 <strong>📌 Keep InboxAgent Visible!</strong>
-                <p>Pin this taskpane to see events in real-time. Click the pin icon in the top-right corner of the taskpane.</p>
+                <p>Pin this taskpane to see events in real-time. Click the pin icon in the top-right corner.</p>
             </div>
             <button class="btn-close-reminder" id="closeReminder">×</button>
         </div>
     </section>
 
     <main class="main-content">
+        <!-- Notification Area (dynamically created) -->
+
         <section class="info-section">
             <h2>Current Item Information</h2>
             <div class="info-card" id="itemInfo">
@@ -115,6 +117,15 @@
                     </svg>
                     Get Properties
                 </button>
+                <button class="btn btn-secondary" id="checkPropertiesBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke-width="2"/>
+                    </svg>
+                    Check Now
+                </button>
+                <button class="btn btn-warning" id="toggleMonitoringBtn">
+                    ⏸️ Stop Monitoring
+                </button>
             </div>
         </section>
 
@@ -142,7 +153,7 @@
     </main>
 
     <footer class="footer">
-        <p>InboxAgent v1.5.0 | Pinnable Taskpane Active</p>
+        <p>InboxAgent v1.0.0 | Pinnable Taskpane Active | Property Monitoring Enabled</p>
     </footer>
 </div>
 

@@ -4,6 +4,14 @@
 let eventCounter = 0;
 let activeListeners = 0;
 let eventHistory = [];
+let monitoringInterval = null;
+let lastKnownState = {
+  categories: [],
+  importance: null,
+  flagStatus: null,
+  itemId: null
+};
+
 const STORAGE_KEY = 'InboxAgent_Events';
 
 // Initialize Office Add-in
@@ -25,47 +33,43 @@ Office.onReady((info) => {
     // Load stored events from previous sessions
     loadStoredEvents();
 
+    // Start property monitoring if in read mode
+    const item = Office.context.mailbox.item;
+    if (item && item.itemId) {
+      startPropertyMonitoring();
+    }
+
     // Log that taskpane is ready
     logEvent('TaskpaneReady', 'Taskpane has been initialized and is ready', {
       host: info.host,
-      platform: info.platform
+      platform: info.platform,
+      isPinned: isPinned()
     });
   }
 });
 
-// Load stored events from roaming settings
+// Load stored events when taskpane opens
 function loadStoredEvents() {
   try {
-    const storedEventsJson = Office.context.roamingSettings.get(STORAGE_KEY);
-
-    if (storedEventsJson) {
+    const storedData = localStorage.getItem(STORAGE_KEY);
+    if (storedData) {
       let storedEvents = [];
       try {
-        storedEvents = JSON.parse(storedEventsJson);
+        storedEvents = JSON.parse(storedData);
       } catch (e) {
-        console.error('Error parsing stored events:', e);
         storedEvents = [];
       }
 
-      console.log(`📦 Loading ${storedEvents.length} stored events from previous sessions...`);
+      console.log(`📦 Loading ${storedEvents.length} stored events...`);
 
       // Display stored events in the taskpane
       storedEvents.forEach((event) => {
-        // Add action class if present
-        let actionClass = '';
-        if (event.action === 'REPLY') actionClass = 'reply';
-        else if (event.action === 'REPLY_ALL') actionClass = 'reply-all';
-        else if (event.action === 'FORWARD') actionClass = 'forward';
-        else if (event.action && event.action.includes('SEND')) actionClass = 'send';
-
-        displayEventInUI(event.type, event.description, event.details || {}, actionClass, event.timestamp);
+        // Don't increment counter for stored events
+        displayStoredEvent(event);
       });
 
       if (storedEvents.length > 0) {
         console.log('✓ Stored events loaded successfully');
-        logEvent('StoredEventsLoaded', `Loaded ${storedEvents.length} events from storage`, {
-          eventCount: storedEvents.length
-        });
       }
     }
   } catch (error) {
@@ -73,13 +77,56 @@ function loadStoredEvents() {
   }
 }
 
+// Display a stored event without incrementing counter
+function displayStoredEvent(event) {
+  const eventLog = document.getElementById('eventLog');
+  const placeholder = eventLog.querySelector('.event-placeholder');
+  if (placeholder) {
+    placeholder.remove();
+  }
+
+  const eventItem = document.createElement('div');
+  eventItem.className = 'event-item stored-event';
+
+  const eventHeader = document.createElement('div');
+  eventHeader.className = 'event-header';
+
+  const eventTypeSpan = document.createElement('span');
+  eventTypeSpan.className = 'event-type';
+  eventTypeSpan.textContent = `${event.type}`;
+
+  const eventTime = document.createElement('span');
+  eventTime.className = 'event-time';
+  eventTime.textContent = new Date(event.timestamp).toLocaleTimeString();
+
+  eventHeader.appendChild(eventTypeSpan);
+  eventHeader.appendChild(eventTime);
+
+  const eventDetails = document.createElement('div');
+  eventDetails.className = 'event-details';
+  eventDetails.textContent = event.description;
+
+  eventItem.appendChild(eventHeader);
+  eventItem.appendChild(eventDetails);
+
+  if (event.details && Object.keys(event.details).length > 0) {
+    const eventData = document.createElement('div');
+    eventData.className = 'event-data';
+    eventData.textContent = JSON.stringify(event.details, null, 2);
+    eventItem.appendChild(eventData);
+  }
+
+  eventLog.appendChild(eventItem);
+}
+
+// Check if taskpane is pinned
+function isPinned() {
+  // Note: There's no direct API to check if pinned, this is a placeholder
+  return 'Pinning supported - check manually in Outlook';
+}
+
 // Setup UI Event Listeners
 function setupUIListeners() {
-  // Close reminder button
-  document.getElementById('closeReminder').addEventListener('click', () => {
-    document.getElementById('pinReminder').classList.add('hidden');
-  });
-
   // Refresh button
   document.getElementById('refreshBtn').addEventListener('click', () => {
     logEvent('ButtonClick', 'Refresh button clicked', {});
@@ -112,7 +159,226 @@ function setupUIListeners() {
     exportEvents();
   });
 
+  // Check properties button
+  const checkPropertiesBtn = document.getElementById('checkPropertiesBtn');
+  if (checkPropertiesBtn) {
+    checkPropertiesBtn.addEventListener('click', () => {
+      monitorItemProperties();
+      logEvent('ManualCheck', 'Manual property check triggered', {});
+    });
+  }
+
+  // Toggle monitoring button
+  const toggleMonitoringBtn = document.getElementById('toggleMonitoringBtn');
+  if (toggleMonitoringBtn) {
+    toggleMonitoringBtn.addEventListener('click', () => {
+      if (monitoringInterval) {
+        stopPropertyMonitoring();
+        toggleMonitoringBtn.textContent = '▶️ Start Monitoring';
+        logEvent('MonitoringStopped', 'Property monitoring stopped', {});
+      } else {
+        startPropertyMonitoring();
+        toggleMonitoringBtn.textContent = '⏸️ Stop Monitoring';
+        logEvent('MonitoringStarted', 'Property monitoring started', {});
+      }
+    });
+  }
+
+  // Close reminder button
+  const closeReminderBtn = document.getElementById('closeReminder');
+  if (closeReminderBtn) {
+    closeReminderBtn.addEventListener('click', () => {
+      document.querySelector('.pin-reminder').style.display = 'none';
+    });
+  }
+
   console.log('✓ UI Event listeners configured');
+}
+
+// Property Monitoring Functions
+function monitorItemProperties() {
+  const item = Office.context.mailbox.item;
+
+  if (!item || !item.itemId) {
+    // Not in read mode, skip monitoring
+    return;
+  }
+
+  // Check if we're monitoring a different item
+  if (lastKnownState.itemId !== item.itemId) {
+    console.log('📌 New item detected, resetting monitoring state');
+    resetMonitoringState(item);
+    return;
+  }
+
+  // Monitor Categories
+  if (item.categories) {
+    item.categories.getAsync((result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        const currentCategories = result.value || [];
+        const previousCategories = lastKnownState.categories || [];
+
+        if (!arraysEqual(currentCategories, previousCategories)) {
+          console.log('%c🏷️ CATEGORIES CHANGED!', 'color: #8b5cf6; font-size: 14px; font-weight: bold;');
+
+          const addedCategories = currentCategories.filter(c => !previousCategories.includes(c));
+          const removedCategories = previousCategories.filter(c => !currentCategories.includes(c));
+
+          logEvent('CategoriesChanged', 'Email categories have been modified', {
+            previousCategories: previousCategories,
+            currentCategories: currentCategories,
+            added: addedCategories,
+            removed: removedCategories,
+            itemId: item.itemId,
+            subject: item.subject
+          });
+
+          // Update stored state
+          lastKnownState.categories = currentCategories;
+
+          // Show notification
+          if (addedCategories.length > 0) {
+            showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
+          }
+          if (removedCategories.length > 0) {
+            showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
+          }
+        }
+      }
+    });
+  }
+
+  // Monitor Importance (includes flag status indirectly)
+  const currentImportance = item.importance;
+  if (currentImportance !== lastKnownState.importance && lastKnownState.importance !== null) {
+    console.log('%c⚠️ IMPORTANCE CHANGED!', 'color: #f59e0b; font-size: 14px; font-weight: bold;');
+
+    const importanceNames = {
+      0: 'Low',
+      1: 'Normal',
+      2: 'High'
+    };
+
+    logEvent('ImportanceChanged', 'Email importance level has been modified', {
+      previousImportance: importanceNames[lastKnownState.importance] || 'Unknown',
+      currentImportance: importanceNames[currentImportance] || 'Unknown',
+      itemId: item.itemId,
+      subject: item.subject
+    });
+
+    lastKnownState.importance = currentImportance;
+    showInAppNotification('⚠️ Importance Changed', importanceNames[currentImportance]);
+  }
+}
+
+// Reset monitoring state for new item
+function resetMonitoringState(item) {
+  lastKnownState.itemId = item.itemId;
+  lastKnownState.importance = item.importance;
+
+  if (item.categories) {
+    item.categories.getAsync((result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        lastKnownState.categories = result.value || [];
+        console.log('Initial categories:', lastKnownState.categories);
+      }
+    });
+  }
+
+  logEvent('MonitoringStarted', 'Started monitoring item properties', {
+    itemId: item.itemId,
+    itemType: item.itemType,
+    subject: item.subject,
+    initialCategories: lastKnownState.categories,
+    initialImportance: lastKnownState.importance
+  });
+}
+
+// Helper function to compare arrays
+function arraysEqual(a, b) {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((val, index) => val === sortedB[index]);
+}
+
+// Show in-app notification in taskpane
+function showInAppNotification(title, message) {
+  let notificationArea = document.getElementById('notificationArea');
+
+  if (!notificationArea) {
+    // Create notification area if it doesn't exist
+    notificationArea = document.createElement('div');
+    notificationArea.id = 'notificationArea';
+    notificationArea.className = 'notification-area';
+    document.querySelector('.main-content').insertBefore(
+      notificationArea,
+      document.querySelector('.main-content').firstChild
+    );
+  }
+
+  const notification = document.createElement('div');
+  notification.className = 'in-app-notification';
+  notification.innerHTML = `
+    <div class="notification-content">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(message)}</p>
+    </div>
+    <button class="notification-close">×</button>
+  `;
+
+  notificationArea.appendChild(notification);
+
+  // Add close handler
+  notification.querySelector('.notification-close').addEventListener('click', () => {
+    notification.remove();
+  });
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    notification.classList.add('fade-out');
+    setTimeout(() => notification.remove(), 300);
+  }, 5000);
+}
+
+// Start monitoring
+function startPropertyMonitoring() {
+  // Clear any existing interval
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+  }
+
+  const item = Office.context.mailbox.item;
+  if (item && item.itemId) {
+    resetMonitoringState(item);
+
+    // Poll every 2 seconds
+    monitoringInterval = setInterval(monitorItemProperties, 2000);
+    console.log('✓ Property monitoring started (polling every 2 seconds)');
+
+    // Update button state
+    const toggleBtn = document.getElementById('toggleMonitoringBtn');
+    if (toggleBtn) {
+      toggleBtn.textContent = '⏸️ Stop Monitoring';
+    }
+  } else {
+    console.log('⚠️ Cannot start monitoring in compose mode');
+  }
+}
+
+// Stop monitoring
+function stopPropertyMonitoring() {
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
+    console.log('✓ Property monitoring stopped');
+
+    // Update button state
+    const toggleBtn = document.getElementById('toggleMonitoringBtn');
+    if (toggleBtn) {
+      toggleBtn.textContent = '▶️ Start Monitoring';
+    }
+  }
 }
 
 // Setup Office Event Listeners
@@ -142,13 +408,13 @@ function setupOfficeEventListeners() {
       );
     }
 
-    // Check if we're in compose mode
+    // Check if we're in compose mode (item doesn't have itemId yet)
     const isComposeMode = !item.itemId;
 
     if (isComposeMode) {
       console.log('📝 Compose mode detected - registering compose-specific listeners');
 
-      // RecipientsChanged event
+      // RecipientsChanged event - only available in compose mode
       if (item.to && typeof item.to.addHandlerAsync === 'function') {
         item.to.addHandlerAsync(
           Office.EventType.RecipientsChanged,
@@ -158,6 +424,8 @@ function setupOfficeEventListeners() {
               console.log('✓ To RecipientsChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.warn('⚠️ Failed to register To RecipientsChanged listener:', asyncResult.error);
             }
           }
         );
@@ -173,6 +441,8 @@ function setupOfficeEventListeners() {
               console.log('✓ CC RecipientsChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.warn('⚠️ Failed to register CC RecipientsChanged listener:', asyncResult.error);
             }
           }
         );
@@ -188,12 +458,14 @@ function setupOfficeEventListeners() {
               console.log('✓ BCC RecipientsChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.warn('⚠️ Failed to register BCC RecipientsChanged listener:', asyncResult.error);
             }
           }
         );
       }
 
-      // AttachmentsChanged event
+      // AttachmentsChanged event - only in compose mode
       if (item.addHandlerAsync) {
         item.addHandlerAsync(
           Office.EventType.AttachmentsChanged,
@@ -203,12 +475,14 @@ function setupOfficeEventListeners() {
               console.log('✓ AttachmentsChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.warn('⚠️ Failed to register AttachmentsChanged listener:', asyncResult.error);
             }
           }
         );
       }
 
-      // EnhancedLocationsChanged event (for appointments)
+      // EnhancedLocationsChanged event (for appointments in compose mode)
       if (item.itemType === Office.MailboxEnums.ItemType.Appointment &&
         item.enhancedLocation &&
         typeof item.enhancedLocation.addHandlerAsync === 'function') {
@@ -220,12 +494,14 @@ function setupOfficeEventListeners() {
               console.log('✓ EnhancedLocationsChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.warn('⚠️ Failed to register EnhancedLocationsChanged listener:', asyncResult.error);
             }
           }
         );
       }
 
-      // RecurrenceChanged event (for appointments)
+      // RecurrenceChanged event (for appointments in compose mode)
       if (item.itemType === Office.MailboxEnums.ItemType.Appointment &&
         item.recurrence &&
         typeof item.recurrence.addHandlerAsync === 'function') {
@@ -237,6 +513,8 @@ function setupOfficeEventListeners() {
               console.log('✓ RecurrenceChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.warn('⚠️ Failed to register RecurrenceChanged listener:', asyncResult.error);
             }
           }
         );
@@ -261,16 +539,26 @@ function onItemChanged(eventArgs) {
   console.log('%c[EVENT] ItemChanged', 'color: #10b981; font-weight: bold;', eventArgs);
 
   logEvent('ItemChanged', 'User switched to a different item', {
-    eventType: eventArgs.type
+    eventType: eventArgs.type,
+    eventArgs: JSON.stringify(eventArgs, null, 2)
   });
 
-  // Reload item info and re-setup listeners for new item
+  // Stop old monitoring
+  stopPropertyMonitoring();
+
+  // Reload item info
   loadItemInfo();
 
-  // Reset and re-setup event listeners for the new item
-  activeListeners = 1; // Keep ItemChanged listener
+  // Reset and re-setup event listeners for new item
+  activeListeners = 0;
+  activeListeners = 1; // ItemChanged listener still active
   updateActiveListeners();
   setupOfficeEventListeners();
+
+  // Start monitoring for new item
+  setTimeout(() => {
+    startPropertyMonitoring();
+  }, 500);
 }
 
 function onRecipientsChanged(eventArgs) {
@@ -397,6 +685,11 @@ function loadItemInfo() {
   document.getElementById('itemId').textContent = item.itemId ? item.itemId.substring(0, 30) + '...' : 'New item';
 
   console.log('✓ Item information loaded');
+  logEvent('ItemInfoLoaded', 'Current item information loaded', {
+    itemType: itemType,
+    mode: mode,
+    hasItemId: !!item.itemId
+  });
 }
 
 // Get detailed item properties
@@ -415,24 +708,51 @@ function getItemProperties() {
     conversationId: item.conversationId,
     dateTimeCreated: item.dateTimeCreated,
     dateTimeModified: item.dateTimeModified,
-    mode: item.itemId ? 'Read' : 'Compose'
+    mode: item.itemId ? 'Read' : 'Compose',
+    importance: item.importance
   };
 
-  // Get async properties
-  if (item.subject) {
-    if (typeof item.subject === 'string') {
-      properties.subject = item.subject;
-      logPropertiesResult(properties);
-    } else {
-      item.subject.getAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          properties.subject = asyncResult.value;
+  // Get categories if available
+  if (item.categories && item.itemId) {
+    item.categories.getAsync((result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        properties.categories = result.value || [];
+      }
+
+      // Get async properties
+      if (item.subject) {
+        if (typeof item.subject === 'string') {
+          properties.subject = item.subject;
+          logPropertiesResult(properties);
+        } else {
+          item.subject.getAsync((asyncResult) => {
+            if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+              properties.subject = asyncResult.value;
+            }
+            logPropertiesResult(properties);
+          });
         }
+      } else {
         logPropertiesResult(properties);
-      });
-    }
+      }
+    });
   } else {
-    logPropertiesResult(properties);
+    // Get async properties
+    if (item.subject) {
+      if (typeof item.subject === 'string') {
+        properties.subject = item.subject;
+        logPropertiesResult(properties);
+      } else {
+        item.subject.getAsync((asyncResult) => {
+          if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+            properties.subject = asyncResult.value;
+          }
+          logPropertiesResult(properties);
+        });
+      }
+    } else {
+      logPropertiesResult(properties);
+    }
   }
 }
 
@@ -441,8 +761,36 @@ function logPropertiesResult(properties) {
   logEvent('PropertiesRetrieved', 'Item properties retrieved successfully', properties);
 }
 
-// Display event in UI (helper function)
-function displayEventInUI(eventType, description, data, actionClass = '', timestamp = null) {
+// Log event to UI and console
+function logEvent(eventType, description, data) {
+  eventCounter++;
+
+  const timestamp = new Date().toISOString();
+  const verboseLogging = document.getElementById('verboseLogging').checked;
+  const timestampEvents = document.getElementById('timestampEvents').checked;
+  const autoScroll = document.getElementById('autoScroll').checked;
+
+  // Store in history
+  const eventRecord = {
+    id: eventCounter,
+    type: eventType,
+    description: description,
+    details: data,
+    timestamp: timestamp
+  };
+  eventHistory.push(eventRecord);
+
+  // Store in localStorage
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(eventHistory.slice(-100)));
+  } catch (e) {
+    console.warn('Could not save to localStorage:', e);
+  }
+
+  // Console logging
+  console.log(`[${timestamp}] ${eventType}: ${description}`, data);
+
+  // Update UI
   const eventLog = document.getElementById('eventLog');
   const placeholder = eventLog.querySelector('.event-placeholder');
   if (placeholder) {
@@ -451,9 +799,6 @@ function displayEventInUI(eventType, description, data, actionClass = '', timest
 
   const eventItem = document.createElement('div');
   eventItem.className = 'event-item';
-  if (actionClass) {
-    eventItem.classList.add(actionClass);
-  }
 
   const eventHeader = document.createElement('div');
   eventHeader.className = 'event-header';
@@ -464,10 +809,8 @@ function displayEventInUI(eventType, description, data, actionClass = '', timest
 
   const eventTime = document.createElement('span');
   eventTime.className = 'event-time';
-  const timestampEvents = document.getElementById('timestampEvents').checked;
   if (timestampEvents) {
-    const timeToDisplay = timestamp ? new Date(timestamp) : new Date();
-    eventTime.textContent = timeToDisplay.toLocaleTimeString();
+    eventTime.textContent = new Date(timestamp).toLocaleTimeString();
   }
 
   eventHeader.appendChild(eventTypeSpan);
@@ -480,8 +823,7 @@ function displayEventInUI(eventType, description, data, actionClass = '', timest
   eventItem.appendChild(eventHeader);
   eventItem.appendChild(eventDetails);
 
-  const verboseLogging = document.getElementById('verboseLogging').checked;
-  if (verboseLogging && data && Object.keys(data).length > 0) {
+  if (verboseLogging && Object.keys(data).length > 0) {
     const eventData = document.createElement('div');
     eventData.className = 'event-data';
     eventData.textContent = JSON.stringify(data, null, 2);
@@ -491,41 +833,9 @@ function displayEventInUI(eventType, description, data, actionClass = '', timest
   eventLog.appendChild(eventItem);
 
   // Auto scroll
-  const autoScroll = document.getElementById('autoScroll').checked;
   if (autoScroll) {
     eventLog.scrollTop = eventLog.scrollHeight;
   }
-}
-
-// Log event to UI and console
-function logEvent(eventType, description, data) {
-  eventCounter++;
-
-  const timestamp = new Date().toISOString();
-
-  // Store in history
-  const eventRecord = {
-    id: eventCounter,
-    type: eventType,
-    description: description,
-    data: data,
-    timestamp: timestamp,
-    action: data.action || data.detectedAction || null
-  };
-  eventHistory.push(eventRecord);
-
-  // Console logging
-  console.log(`[${timestamp}] ${eventType}: ${description}`, data);
-
-  // Determine action class
-  let actionClass = '';
-  if (data.action === 'REPLY') actionClass = 'reply';
-  else if (data.action === 'REPLY_ALL') actionClass = 'reply-all';
-  else if (data.action === 'FORWARD') actionClass = 'forward';
-  else if (data.action && data.action.includes('SEND')) actionClass = 'send';
-
-  // Display in UI
-  displayEventInUI(eventType, description, data, actionClass);
 
   // Update counter
   document.getElementById('totalEvents').textContent = eventCounter;
@@ -541,6 +851,13 @@ function clearEvents() {
   eventCounter = 0;
   eventHistory = [];
 
+  // Clear localStorage
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.warn('Could not clear localStorage:', e);
+  }
+
   const eventLog = document.getElementById('eventLog');
   eventLog.innerHTML = `
         <div class="event-placeholder">
@@ -553,10 +870,6 @@ function clearEvents() {
     `;
 
   document.getElementById('totalEvents').textContent = '0';
-
-  // Clear roaming settings
-  Office.context.roamingSettings.remove(STORAGE_KEY);
-  Office.context.roamingSettings.saveAsync();
 
   console.log('%cEvents cleared', 'color: #ef4444; font-weight: bold;');
 }
@@ -589,4 +902,16 @@ function exportEvents() {
   logEvent('EventsExported', 'Event history exported to JSON file', {
     totalEvents: eventHistory.length
   });
-} 
+}
+
+// Escape HTML helper
+function escapeHtml(text) {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return String(text).replace(/[&<>"']/g, m => map[m]);
+}
