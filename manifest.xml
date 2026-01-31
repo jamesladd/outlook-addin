@@ -1,26 +1,28 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
-           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
-           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
-           xsi:type="MailApp">
+<OfficeApp
+        xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+        xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+        xsi:type="MailApp">
 
     <!-- Basic Add-in Information -->
-    <Id>12345678-1234-1234-1234-123456789abc</Id>
-    <Version>1.3.0.0</Version>
-    <ProviderName>InboxAgent</ProviderName>
+    <Id>12345678-1234-1234-1234-123456789012</Id>
+    <Version>1.4.0.0</Version>
+    <ProviderName>InboxAgent Provider</ProviderName>
     <DefaultLocale>en-US</DefaultLocale>
-    <DisplayName DefaultValue="InboxAgentA"/>
-    <Description DefaultValue="Advanced email tracking and event monitoring add-in for Outlook on the web"/>
+    <DisplayName DefaultValue="InboxAgentB"/>
+    <Description DefaultValue="A comprehensive Outlook Mail Add-in with pinnable taskpane and event-based activation"/>
     <IconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-64.png"/>
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-128.png"/>
-    <SupportUrl DefaultValue="https://jamesladd.github.io/outlook-addin/support.html"/>
+    <SupportUrl DefaultValue="https://jamesladd.github.io/outlook-addin/support"/>
 
     <!-- Hosts -->
     <Hosts>
         <Host Name="Mailbox"/>
     </Hosts>
 
+    <!-- Requirements -->
     <Requirements>
         <Sets>
             <Set Name="Mailbox" MinVersion="1.13"/>
@@ -40,174 +42,49 @@
     <!-- Permissions -->
     <Permissions>ReadWriteMailbox</Permissions>
 
+    <!-- All Form Factors -->
     <Rule xsi:type="RuleCollection" Mode="Or">
         <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+        <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+        <Rule xsi:type="ItemIs" ItemType="Appointment" FormType="Read"/>
+        <Rule xsi:type="ItemIs" ItemType="Appointment" FormType="Edit"/>
     </Rule>
 
-    <DisableEntityHighlighting>false</DisableEntityHighlighting>
-
-    <!-- VersionOverrides 1.0 -->
+    <!-- Version Overrides 1.1 -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
-
-        <Requirements>
-            <bt:Sets DefaultMinVersion="1.13">
-                <bt:Set Name="Mailbox"/>
-            </bt:Sets>
-        </Requirements>
-
-        <Hosts>
-            <Host xsi:type="MailHost">
-
-                <DesktopFormFactor>
-
-                    <!-- Runtimes must be inside DesktopFormFactor -->
-                    <Runtimes>
-                        <Runtime resid="WebViewRuntime.Url">
-                            <Override type="javascript" resid="JSRuntime.Url"/>
-                        </Runtime>
-                    </Runtimes>
-
-                    <!-- Function File for Commands -->
-                    <FunctionFile resid="Commands.Url"/>
-
-                    <!-- Extension Point: Message Read Command Surface -->
-                    <ExtensionPoint xsi:type="MessageReadCommandSurface">
-                        <OfficeTab id="TabDefault">
-                            <Group id="msgReadGroup">
-                                <Label resid="GroupLabel"/>
-                                <Control xsi:type="Button" id="msgReadOpenPaneButton">
-                                    <Label resid="TaskpaneButton.Label"/>
-                                    <Supertip>
-                                        <Title resid="TaskpaneButton.Label"/>
-                                        <Description resid="TaskpaneButton.Tooltip"/>
-                                    </Supertip>
-                                    <Icon>
-                                        <bt:Image size="16" resid="Icon.16x16"/>
-                                        <bt:Image size="32" resid="Icon.32x32"/>
-                                        <bt:Image size="80" resid="Icon.80x80"/>
-                                    </Icon>
-                                    <Action xsi:type="ShowTaskpane">
-                                        <SourceLocation resid="Taskpane.Url"/>
-                                        <SupportsPinning>true</SupportsPinning>
-                                    </Action>
-                                </Control>
-                            </Group>
-                        </OfficeTab>
-                    </ExtensionPoint>
-
-                    <!-- Extension Point: Message Compose Command Surface -->
-                    <ExtensionPoint xsi:type="MessageComposeCommandSurface">
-                        <OfficeTab id="TabDefault">
-                            <Group id="msgComposeGroup">
-                                <Label resid="GroupLabel"/>
-                                <Control xsi:type="Button" id="msgComposeOpenPaneButton">
-                                    <Label resid="TaskpaneButton.Label"/>
-                                    <Supertip>
-                                        <Title resid="TaskpaneButton.Label"/>
-                                        <Description resid="TaskpaneButton.Tooltip"/>
-                                    </Supertip>
-                                    <Icon>
-                                        <bt:Image size="16" resid="Icon.16x16"/>
-                                        <bt:Image size="32" resid="Icon.32x32"/>
-                                        <bt:Image size="80" resid="Icon.80x80"/>
-                                    </Icon>
-                                    <Action xsi:type="ShowTaskpane">
-                                        <SourceLocation resid="Taskpane.Url"/>
-                                        <SupportsPinning>true</SupportsPinning>
-                                    </Action>
-                                </Control>
-                            </Group>
-                        </OfficeTab>
-                    </ExtensionPoint>
-
-                    <!-- Event-based Activation -->
-                    <ExtensionPoint xsi:type="LaunchEvent">
-                        <LaunchEvents>
-                            <!-- OnNewMessageCompose - fires when composing a new message -->
-                            <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler"/>
-
-                            <!-- OnMessageAttachmentsChanged - fires when attachments change -->
-                            <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler"/>
-
-                            <!-- OnMessageRecipientsChanged - fires when recipients change -->
-                            <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler"/>
-
-                            <!-- OnMessageSend - fires before sending -->
-                            <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler">
-                                <SendMode>PromptUser</SendMode>
-                            </LaunchEvent>
-
-                            <!-- OnAppointmentSend - fires before sending appointment -->
-                            <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler">
-                                <SendMode>PromptUser</SendMode>
-                            </LaunchEvent>
-
-                            <!-- OnNewAppointmentOrganizer - fires when creating new appointment -->
-                            <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler"/>
-
-                            <!-- OnMessageFromChanged - fires when 'from' address changes -->
-                            <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler"/>
-
-                            <!-- OnSensitivityLabelChanged - fires when sensitivity label changes -->
-                            <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler"/>
-                        </LaunchEvents>
-                        <SourceLocation resid="WebViewRuntime.Url"/>
-                    </ExtensionPoint>
-
-                </DesktopFormFactor>
-            </Host>
-        </Hosts>
-
-        <!-- Resources -->
-        <Resources>
-            <bt:Images>
-                <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
-                <bt:Image id="Icon.32x32" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-32.png"/>
-                <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-80.png"/>
-            </bt:Images>
-            <bt:Urls>
-                <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
-                <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
-                <bt:Url id="WebViewRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
-                <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.js"/>
-            </bt:Urls>
-            <bt:ShortStrings>
-                <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
-                <bt:String id="TaskpaneButton.Label" DefaultValue="Show InboxAgent"/>
-            </bt:ShortStrings>
-            <bt:LongStrings>
-                <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent taskpane to monitor email events"/>
-            </bt:LongStrings>
-        </Resources>
-
-        <!-- VersionOverrides 1.1 -->
         <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
 
+            <!-- Requirements for VersionOverrides -->
             <Requirements>
                 <bt:Sets DefaultMinVersion="1.13">
                     <bt:Set Name="Mailbox"/>
                 </bt:Sets>
             </Requirements>
 
+            <!-- Hosts -->
             <Hosts>
                 <Host xsi:type="MailHost">
 
+                    <!-- Runtimes for Event-based Activation -->
+                    <Runtimes>
+                        <Runtime resid="WebViewRuntime.Url">
+                            <Override type="javascript" resid="JSRuntime.Url"/>
+                        </Runtime>
+                    </Runtimes>
+
+                    <!-- Desktop Form Factor -->
                     <DesktopFormFactor>
 
-                        <!-- Runtimes inside DesktopFormFactor for 1.1 -->
-                        <Runtimes>
-                            <Runtime resid="WebViewRuntime.Url">
-                                <Override type="javascript" resid="JSRuntime.Url"/>
-                            </Runtime>
-                        </Runtimes>
-
+                        <!-- Function File -->
                         <FunctionFile resid="Commands.Url"/>
 
-                        <!-- Pinnable Taskpane -->
+                        <!-- Extension Point: Message Read Command Surface -->
                         <ExtensionPoint xsi:type="MessageReadCommandSurface">
                             <OfficeTab id="TabDefault">
                                 <Group id="msgReadGroup">
                                     <Label resid="GroupLabel"/>
+
+                                    <!-- Taskpane Button -->
                                     <Control xsi:type="Button" id="msgReadOpenPaneButton">
                                         <Label resid="TaskpaneButton.Label"/>
                                         <Supertip>
@@ -221,17 +98,39 @@
                                         </Icon>
                                         <Action xsi:type="ShowTaskpane">
                                             <SourceLocation resid="Taskpane.Url"/>
+                                            <!-- Pinnable TaskPane -->
                                             <SupportsPinning>true</SupportsPinning>
                                         </Action>
                                     </Control>
+
+                                    <!-- Action Button -->
+                                    <Control xsi:type="Button" id="ActionButton">
+                                        <Label resid="ActionButton.Label"/>
+                                        <Supertip>
+                                            <Title resid="ActionButton.Label"/>
+                                            <Description resid="ActionButton.Tooltip"/>
+                                        </Supertip>
+                                        <Icon>
+                                            <bt:Image size="16" resid="Icon.16x16"/>
+                                            <bt:Image size="32" resid="Icon.32x32"/>
+                                            <bt:Image size="80" resid="Icon.80x80"/>
+                                        </Icon>
+                                        <Action xsi:type="ExecuteFunction">
+                                            <FunctionName>action</FunctionName>
+                                        </Action>
+                                    </Control>
+
                                 </Group>
                             </OfficeTab>
                         </ExtensionPoint>
 
+                        <!-- Extension Point: Message Compose Command Surface -->
                         <ExtensionPoint xsi:type="MessageComposeCommandSurface">
                             <OfficeTab id="TabDefault">
                                 <Group id="msgComposeGroup">
                                     <Label resid="GroupLabel"/>
+
+                                    <!-- Taskpane Button -->
                                     <Control xsi:type="Button" id="msgComposeOpenPaneButton">
                                         <Label resid="TaskpaneButton.Label"/>
                                         <Supertip>
@@ -245,36 +144,133 @@
                                         </Icon>
                                         <Action xsi:type="ShowTaskpane">
                                             <SourceLocation resid="Taskpane.Url"/>
+                                            <!-- Pinnable TaskPane -->
                                             <SupportsPinning>true</SupportsPinning>
                                         </Action>
                                     </Control>
+
                                 </Group>
                             </OfficeTab>
                         </ExtensionPoint>
 
-                        <!-- Event-based Activation -->
+                        <!-- Extension Point: Appointment Organizer Command Surface -->
+                        <ExtensionPoint xsi:type="AppointmentOrganizerCommandSurface">
+                            <OfficeTab id="TabDefault">
+                                <Group id="apptOrganizerGroup">
+                                    <Label resid="GroupLabel"/>
+
+                                    <!-- Taskpane Button -->
+                                    <Control xsi:type="Button" id="apptOrganizerOpenPaneButton">
+                                        <Label resid="TaskpaneButton.Label"/>
+                                        <Supertip>
+                                            <Title resid="TaskpaneButton.Label"/>
+                                            <Description resid="TaskpaneButton.Tooltip"/>
+                                        </Supertip>
+                                        <Icon>
+                                            <bt:Image size="16" resid="Icon.16x16"/>
+                                            <bt:Image size="32" resid="Icon.32x32"/>
+                                            <bt:Image size="80" resid="Icon.80x80"/>
+                                        </Icon>
+                                        <Action xsi:type="ShowTaskpane">
+                                            <SourceLocation resid="Taskpane.Url"/>
+                                            <!-- Pinnable TaskPane -->
+                                            <SupportsPinning>true</SupportsPinning>
+                                        </Action>
+                                    </Control>
+
+                                </Group>
+                            </OfficeTab>
+                        </ExtensionPoint>
+
+                        <!-- Extension Point: Appointment Attendee Command Surface -->
+                        <ExtensionPoint xsi:type="AppointmentAttendeeCommandSurface">
+                            <OfficeTab id="TabDefault">
+                                <Group id="apptAttendeeGroup">
+                                    <Label resid="GroupLabel"/>
+
+                                    <!-- Taskpane Button -->
+                                    <Control xsi:type="Button" id="apptAttendeeOpenPaneButton">
+                                        <Label resid="TaskpaneButton.Label"/>
+                                        <Supertip>
+                                            <Title resid="TaskpaneButton.Label"/>
+                                            <Description resid="TaskpaneButton.Tooltip"/>
+                                        </Supertip>
+                                        <Icon>
+                                            <bt:Image size="16" resid="Icon.16x16"/>
+                                            <bt:Image size="32" resid="Icon.32x32"/>
+                                            <bt:Image size="80" resid="Icon.80x80"/>
+                                        </Icon>
+                                        <Action xsi:type="ShowTaskpane">
+                                            <SourceLocation resid="Taskpane.Url"/>
+                                            <!-- Pinnable TaskPane -->
+                                            <SupportsPinning>true</SupportsPinning>
+                                        </Action>
+                                    </Control>
+
+                                </Group>
+                            </OfficeTab>
+                        </ExtensionPoint>
+
+                        <!-- Extension Point: Module -->
+                        <ExtensionPoint xsi:type="Module">
+                            <SourceLocation resid="Taskpane.Url"/>
+                            <Label resid="ModuleLabel"/>
+                            <CommandSurface>
+                                <CustomTab id="CustomTab">
+                                    <Group id="CustomTabGroup">
+                                        <Label resid="GroupLabel"/>
+                                        <Control xsi:type="Button" id="CustomTabButton">
+                                            <Label resid="TaskpaneButton.Label"/>
+                                            <Supertip>
+                                                <Title resid="TaskpaneButton.Label"/>
+                                                <Description resid="TaskpaneButton.Tooltip"/>
+                                            </Supertip>
+                                            <Icon>
+                                                <bt:Image size="16" resid="Icon.16x16"/>
+                                                <bt:Image size="32" resid="Icon.32x32"/>
+                                                <bt:Image size="80" resid="Icon.80x80"/>
+                                            </Icon>
+                                            <Action xsi:type="ShowTaskpane">
+                                                <SourceLocation resid="Taskpane.Url"/>
+                                                <SupportsPinning>true</SupportsPinning>
+                                            </Action>
+                                        </Control>
+                                    </Group>
+                                    <Label resid="CustomTabLabel"/>
+                                </CustomTab>
+                            </CommandSurface>
+                        </ExtensionPoint>
+
+                        <!-- Extension Point: Events (LaunchEvent) -->
                         <ExtensionPoint xsi:type="LaunchEvent">
+
+                            <!-- OnNewMessageCompose Event -->
                             <LaunchEvents>
-                                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler"/>
-                                <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler"/>
-                                <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler"/>
-                                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler">
-                                    <SendMode>PromptUser</SendMode>
-                                </LaunchEvent>
-                                <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler">
-                                    <SendMode>PromptUser</SendMode>
-                                </LaunchEvent>
-                                <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler"/>
-                                <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler"/>
-                                <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler"/>
+                                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnAppointmentAttachmentsChanged" FunctionName="onAppointmentAttachmentsChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnAppointmentAttendeesChanged" FunctionName="onAppointmentAttendeesChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnAppointmentTimeChanged" FunctionName="onAppointmentTimeChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnAppointmentRecurrenceChanged" FunctionName="onAppointmentRecurrenceChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnInfoBarDismissClicked" FunctionName="onInfoBarDismissClickedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler" SendMode="PromptUser"/>
+                                <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler" SendMode="PromptUser"/>
                             </LaunchEvents>
+
+                            <!-- SourceLocation for Events Runtime -->
                             <SourceLocation resid="WebViewRuntime.Url"/>
+
                         </ExtensionPoint>
 
                     </DesktopFormFactor>
                 </Host>
             </Hosts>
 
+            <!-- Resources -->
             <Resources>
                 <bt:Images>
                     <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
@@ -285,17 +281,22 @@
                     <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
                     <bt:Url id="WebViewRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
-                    <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.js"/>
+                    <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
                 </bt:Urls>
                 <bt:ShortStrings>
                     <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
-                    <bt:String id="TaskpaneButton.Label" DefaultValue="Show InboxAgent"/>
+                    <bt:String id="TaskpaneButton.Label" DefaultValue="Show Taskpane"/>
+                    <bt:String id="ActionButton.Label" DefaultValue="Perform Action"/>
+                    <bt:String id="ModuleLabel" DefaultValue="InboxAgent Module"/>
+                    <bt:String id="CustomTabLabel" DefaultValue="InboxAgent Tab"/>
                 </bt:ShortStrings>
                 <bt:LongStrings>
-                    <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent taskpane to monitor email events"/>
+                    <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent taskpane with pinnable functionality"/>
+                    <bt:String id="ActionButton.Tooltip" DefaultValue="Performs a custom action"/>
                 </bt:LongStrings>
             </Resources>
 
         </VersionOverrides>
     </VersionOverrides>
+
 </OfficeApp>
