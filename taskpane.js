@@ -18,7 +18,7 @@ Office.onReady((info) => {
     // Load current item information
     loadItemInfo();
 
-    // Setup Office event listeners
+    // Setup Office event listeners (taskpane-specific)
     setupOfficeEventListeners();
 
     // Log that taskpane is ready
@@ -73,11 +73,12 @@ function setupUIListeners() {
   console.log('✓ UI Event listeners configured');
 }
 
-// Setup Office Event Listeners
+// Setup Office Event Listeners (Taskpane-specific only)
 function setupOfficeEventListeners() {
   try {
     if (Office.context.mailbox.item) {
       // ItemChanged event (when user switches items while taskpane is open)
+      // This is the only event that can be registered from the taskpane
       if (Office.context.mailbox.addHandlerAsync) {
         Office.context.mailbox.addHandlerAsync(
           Office.EventType.ItemChanged,
@@ -94,99 +95,30 @@ function setupOfficeEventListeners() {
         );
       }
 
-      // RecipientsChanged event (for compose mode)
-      if (Office.context.mailbox.item.addHandlerAsync) {
-        // To recipients
-        if (Office.context.mailbox.item.to) {
-          Office.context.mailbox.item.to.addHandlerAsync(
-            Office.EventType.RecipientsChanged,
-            onRecipientsChanged,
-            (asyncResult) => {
-              if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-                console.log('✓ To RecipientsChanged event listener registered');
-                activeListeners++;
-                updateActiveListeners();
-              }
-            }
-          );
-        }
-
-        // CC recipients
-        if (Office.context.mailbox.item.cc) {
-          Office.context.mailbox.item.cc.addHandlerAsync(
-            Office.EventType.RecipientsChanged,
-            onCcChanged,
-            (asyncResult) => {
-              if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-                console.log('✓ CC RecipientsChanged event listener registered');
-                activeListeners++;
-                updateActiveListeners();
-              }
-            }
-          );
-        }
-
-        // BCC recipients
-        if (Office.context.mailbox.item.bcc) {
-          Office.context.mailbox.item.bcc.addHandlerAsync(
-            Office.EventType.RecipientsChanged,
-            onBccChanged,
-            (asyncResult) => {
-              if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-                console.log('✓ BCC RecipientsChanged event listener registered');
-                activeListeners++;
-                updateActiveListeners();
-              }
-            }
-          );
-        }
-
-        // AttachmentsChanged event
-        Office.context.mailbox.item.addHandlerAsync(
-          Office.EventType.AttachmentsChanged,
-          onAttachmentsChanged,
+      // SelectedItemsChanged event (for read mode - mailbox level)
+      if (Office.context.mailbox.addHandlerAsync && Office.EventType.SelectedItemsChanged) {
+        Office.context.mailbox.addHandlerAsync(
+          Office.EventType.SelectedItemsChanged,
+          onSelectedItemsChanged,
           (asyncResult) => {
             if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-              console.log('✓ AttachmentsChanged event listener registered');
+              console.log('✓ SelectedItemsChanged event listener registered');
               activeListeners++;
               updateActiveListeners();
+            } else {
+              console.log('ℹ SelectedItemsChanged not available in this context');
             }
           }
         );
-
-        // EnhancedLocationsChanged event (for appointments)
-        if (Office.context.mailbox.item.enhancedLocation) {
-          Office.context.mailbox.item.enhancedLocation.addHandlerAsync(
-            Office.EventType.EnhancedLocationsChanged,
-            onEnhancedLocationsChanged,
-            (asyncResult) => {
-              if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-                console.log('✓ EnhancedLocationsChanged event listener registered');
-                activeListeners++;
-                updateActiveListeners();
-              }
-            }
-          );
-        }
-
-        // RecurrenceChanged event (for appointments)
-        if (Office.context.mailbox.item.recurrence) {
-          Office.context.mailbox.item.recurrence.addHandlerAsync(
-            Office.EventType.RecurrenceChanged,
-            onRecurrenceChanged,
-            (asyncResult) => {
-              if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-                console.log('✓ RecurrenceChanged event listener registered');
-                activeListeners++;
-                updateActiveListeners();
-              }
-            }
-          );
-        }
       }
     }
 
-    console.log(`✓ Office event listeners setup complete. Total active: ${activeListeners}`);
+    // Note: Other events like RecipientsChanged, AttachmentsChanged, etc.
+    // are handled via LaunchEvent in the manifest and launchevent.js
+    // They cannot be registered from the taskpane directly
+
+    console.log(`✓ Taskpane event listeners setup complete. Active listeners: ${activeListeners}`);
+    console.log('ℹ Other events (Recipients, Attachments, Send, etc.) are handled via LaunchEvent in manifest');
 
   } catch (error) {
     console.error('Error setting up Office event listeners:', error);
@@ -207,91 +139,16 @@ function onItemChanged(eventArgs) {
   loadItemInfo();
 }
 
-function onRecipientsChanged(eventArgs) {
-  console.log('%c[EVENT] RecipientsChanged (To)', 'color: #10b981; font-weight: bold;', eventArgs);
+function onSelectedItemsChanged(eventArgs) {
+  console.log('%c[EVENT] SelectedItemsChanged', 'color: #10b981; font-weight: bold;', eventArgs);
 
-  Office.context.mailbox.item.to.getAsync((asyncResult) => {
-    if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-      logEvent('RecipientsChanged', 'To recipients have been modified', {
-        eventType: eventArgs.type,
-        recipientCount: asyncResult.value.length,
-        recipients: asyncResult.value.map(r => r.emailAddress)
-      });
-    }
+  logEvent('SelectedItemsChanged', 'Selected items in the mailbox changed', {
+    eventType: eventArgs.type,
+    eventArgs: JSON.stringify(eventArgs, null, 2)
   });
-}
 
-function onCcChanged(eventArgs) {
-  console.log('%c[EVENT] RecipientsChanged (CC)', 'color: #10b981; font-weight: bold;', eventArgs);
-
-  Office.context.mailbox.item.cc.getAsync((asyncResult) => {
-    if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-      logEvent('RecipientsChanged', 'CC recipients have been modified', {
-        eventType: eventArgs.type,
-        recipientType: 'CC',
-        recipientCount: asyncResult.value.length,
-        recipients: asyncResult.value.map(r => r.emailAddress)
-      });
-    }
-  });
-}
-
-function onBccChanged(eventArgs) {
-  console.log('%c[EVENT] RecipientsChanged (BCC)', 'color: #10b981; font-weight: bold;', eventArgs);
-
-  Office.context.mailbox.item.bcc.getAsync((asyncResult) => {
-    if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-      logEvent('RecipientsChanged', 'BCC recipients have been modified', {
-        eventType: eventArgs.type,
-        recipientType: 'BCC',
-        recipientCount: asyncResult.value.length
-      });
-    }
-  });
-}
-
-function onAttachmentsChanged(eventArgs) {
-  console.log('%c[EVENT] AttachmentsChanged', 'color: #10b981; font-weight: bold;', eventArgs);
-
-  Office.context.mailbox.item.getAttachmentsAsync((asyncResult) => {
-    if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-      logEvent('AttachmentsChanged', 'Attachments have been added or removed', {
-        eventType: eventArgs.type,
-        attachmentCount: asyncResult.value.length,
-        attachments: asyncResult.value.map(a => ({
-          name: a.name,
-          size: a.size,
-          type: a.attachmentType
-        }))
-      });
-    }
-  });
-}
-
-function onEnhancedLocationsChanged(eventArgs) {
-  console.log('%c[EVENT] EnhancedLocationsChanged', 'color: #10b981; font-weight: bold;', eventArgs);
-
-  Office.context.mailbox.item.enhancedLocation.getAsync((asyncResult) => {
-    if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-      logEvent('EnhancedLocationsChanged', 'Appointment location has been modified', {
-        eventType: eventArgs.type,
-        locations: asyncResult.value
-      });
-    }
-  });
-}
-
-function onRecurrenceChanged(eventArgs) {
-  console.log('%c[EVENT] RecurrenceChanged', 'color: #10b981; font-weight: bold;', eventArgs);
-
-  Office.context.mailbox.item.recurrence.getAsync((asyncResult) => {
-    if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-      logEvent('RecurrenceChanged', 'Appointment recurrence has been modified', {
-        eventType: eventArgs.type,
-        recurrence: asyncResult.value
-      });
-    }
-  });
+  // Reload item info
+  loadItemInfo();
 }
 
 // Load current item information
@@ -323,12 +180,14 @@ function loadItemInfo() {
     }
   }
 
-  // Mode
-  const mode = item.itemClass.includes('IPM.Note') ? 'Read/Compose' : 'Read';
+  // Mode (Read vs Compose)
+  const isCompose = item.itemId === null || item.itemId === undefined;
+  const mode = isCompose ? 'Compose' : 'Read';
   document.getElementById('itemMode').textContent = mode;
 
   // Item ID
-  document.getElementById('itemId').textContent = item.itemId ? item.itemId.substring(0, 30) + '...' : 'New item';
+  const itemId = item.itemId || 'New item (no ID yet)';
+  document.getElementById('itemId').textContent = itemId.length > 30 ? itemId.substring(0, 30) + '...' : itemId;
 
   console.log('✓ Item information loaded');
 }
@@ -347,24 +206,67 @@ function getItemProperties() {
     itemClass: item.itemClass,
     itemId: item.itemId,
     conversationId: item.conversationId,
-    dateTimeCreated: item.dateTimeCreated,
-    dateTimeModified: item.dateTimeModified
+    dateTimeCreated: item.dateTimeCreated ? item.dateTimeCreated.toISOString() : 'N/A',
+    dateTimeModified: item.dateTimeModified ? item.dateTimeModified.toISOString() : 'N/A',
+    normalizedSubject: item.normalizedSubject
   };
 
-  // Get async properties
-  if (item.subject) {
-    if (typeof item.subject === 'string') {
-      properties.subject = item.subject;
-      logPropertiesResult(properties);
-    } else {
-      item.subject.getAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          properties.subject = asyncResult.value;
-        }
-        logPropertiesResult(properties);
-      });
+  // Check if we're in compose or read mode
+  const isCompose = item.itemId === null || item.itemId === undefined;
+  properties.mode = isCompose ? 'Compose' : 'Read';
+
+  // Add compose-specific properties
+  if (isCompose) {
+    // Get async properties for compose mode
+    const asyncCallsNeeded = [];
+
+    if (item.subject && item.subject.getAsync) {
+      asyncCallsNeeded.push(
+        new Promise((resolve) => {
+          item.subject.getAsync((result) => {
+            properties.subject = result.status === Office.AsyncResultStatus.Succeeded ? result.value : 'N/A';
+            resolve();
+          });
+        })
+      );
     }
+
+    if (item.to && item.to.getAsync) {
+      asyncCallsNeeded.push(
+        new Promise((resolve) => {
+          item.to.getAsync((result) => {
+            properties.toRecipients = result.status === Office.AsyncResultStatus.Succeeded
+              ? result.value.map(r => r.emailAddress)
+              : [];
+            resolve();
+          });
+        })
+      );
+    }
+
+    if (item.cc && item.cc.getAsync) {
+      asyncCallsNeeded.push(
+        new Promise((resolve) => {
+          item.cc.getAsync((result) => {
+            properties.ccRecipients = result.status === Office.AsyncResultStatus.Succeeded
+              ? result.value.map(r => r.emailAddress)
+              : [];
+            resolve();
+          });
+        })
+      );
+    }
+
+    Promise.all(asyncCallsNeeded).then(() => {
+      logPropertiesResult(properties);
+    });
   } else {
+    // Read mode - properties are directly accessible
+    properties.subject = item.subject;
+    properties.from = item.from ? item.from.emailAddress : 'N/A';
+    properties.to = item.to ? item.to.map(r => r.emailAddress) : [];
+    properties.cc = item.cc ? item.cc.map(r => r.emailAddress) : [];
+
     logPropertiesResult(properties);
   }
 }
@@ -500,5 +402,20 @@ function exportEvents() {
   console.log('%cEvents exported', 'color: #10b981; font-weight: bold;', exportData);
   logEvent('EventsExported', 'Event history exported to JSON file', {
     totalEvents: eventHistory.length
+  });
+}
+
+// Listen for messages from event handlers (if using shared runtime)
+if (window.addEventListener) {
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'LaunchEvent') {
+      console.log('%c[MESSAGE] Received event from LaunchEvent handler', 'color: #8b5cf6; font-weight: bold;', event.data);
+
+      logEvent(
+        event.data.eventName || 'LaunchEvent',
+        event.data.description || 'Event triggered from LaunchEvent handler',
+        event.data.data || {}
+      );
+    }
   });
 }
