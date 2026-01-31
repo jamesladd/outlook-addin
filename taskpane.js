@@ -11,7 +11,6 @@
   let isMonitoring = true;
   let monitoringInterval = null;
   let previousItemState = null;
-  const activityQueue = new Queue({ results: [], concurrency: 1 });
 
   // Initialize Office
   Office.onReady((info) => {
@@ -158,7 +157,11 @@
         });
       }
 
-      testQueue.start();
+      testQueue.start((err) => {
+        if (err) {
+          console.error('Test queue error:', err);
+        }
+      });
     } else {
       console.log('No item currently selected');
       logActivity('warning', 'No item currently selected');
@@ -247,23 +250,22 @@
 
   function updateCurrentItem() {
     const item = Office.context.mailbox.item;
-    if (item) {
-      activityQueue.push(cb => {
-        getPropertyValue(item, 'subject', (subject) => {
-          const displaySubject = subject || '(No Subject)';
-          document.getElementById('current-item').textContent =
-            displaySubject.substring(0, 30) + (displaySubject.length > 30 ? '...' : '');
-
-          console.log('=== CURRENT ITEM UPDATED ===');
-          console.log('Subject:', displaySubject);
-          console.log('Item Type:', item.itemType);
-          console.log('Item ID:', item.itemId || 'New item (no ID)');
-          cb();
-        });
-      });
-
-      activityQueue.start();
+    if (!item) {
+      console.log('No item available');
+      document.getElementById('current-item').textContent = 'No item';
+      return;
     }
+
+    getPropertyValue(item, 'subject', (subject) => {
+      const displaySubject = subject || '(No Subject)';
+      document.getElementById('current-item').textContent =
+        displaySubject.substring(0, 30) + (displaySubject.length > 30 ? '...' : '');
+
+      console.log('=== CURRENT ITEM UPDATED ===');
+      console.log('Subject:', displaySubject);
+      console.log('Item Type:', item.itemType);
+      console.log('Item ID:', item.itemId || 'New item (no ID)');
+    });
   }
 
   function toggleMonitoring() {
@@ -407,7 +409,11 @@
       cb();
     });
 
-    captureQueue.start();
+    captureQueue.start((err) => {
+      if (err) {
+        console.error('Capture queue error:', err);
+      }
+    });
   }
 
   function checkForItemChanges() {
@@ -495,7 +501,11 @@
       cb();
     });
 
-    checkQueue.start();
+    checkQueue.start((err) => {
+      if (err) {
+        console.error('Check queue error:', err);
+      }
+    });
   }
 
   function compareStates(oldState, newState) {
