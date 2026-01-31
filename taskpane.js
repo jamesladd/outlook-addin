@@ -12,6 +12,7 @@
   let monitoringInterval = null;
   let previousItemState = null;
   let isInitialized = false;
+  let lastReadStatus = null;
 
   // Initialize Office
   Office.onReady((info) => {
@@ -170,6 +171,7 @@
       console.log('  - Item Class:', item.itemClass);
       console.log('  - Item ID:', item.itemId || 'No ID (new item)');
       console.log('  - Conversation ID:', item.conversationId);
+      console.log('  - Read Status:', item.read);
 
       const testQueue = new Queue({ results: [], concurrency: 1 });
 
@@ -297,6 +299,7 @@
 
     // Reset monitoring state for new item
     previousItemState = null;
+    lastReadStatus = null;
     if (isMonitoring) {
       captureCurrentItemState();
     }
@@ -385,17 +388,24 @@
     try {
       captureCurrentItemState();
 
-      // Poll for changes every 2 seconds
+      // Initialize read status
+      const item = Office.context.mailbox.item;
+      if (item && typeof item.read !== 'undefined') {
+        lastReadStatus = item.read;
+      }
+
+      // Poll for changes every 1 second
       if (monitoringInterval) {
         clearInterval(monitoringInterval);
       }
 
       monitoringInterval = setInterval(() => {
         checkForItemChanges();
-      }, 2000);
+        monitorReadStatusChanges();
+      }, 1000);
 
       console.log('=== DEEP MONITORING STARTED ===');
-      console.log('Polling Interval: 2000ms');
+      console.log('Polling Interval: 1000ms');
       console.log('Timestamp:', new Date().toISOString());
     } catch (error) {
       console.error('=== ERROR STARTING MONITORING ===');
@@ -410,9 +420,33 @@
       monitoringInterval = null;
     }
     previousItemState = null;
+    lastReadStatus = null;
 
     console.log('=== DEEP MONITORING STOPPED ===');
     console.log('Timestamp:', new Date().toISOString());
+  }
+
+  // Monitor read status changes separately
+  function monitorReadStatusChanges() {
+    const item = Office.context.mailbox.item;
+    if (!item || typeof item.read === 'undefined') return;
+
+    const currentReadStatus = item.read;
+
+    if (lastReadStatus !== null && lastReadStatus !== currentReadStatus) {
+      console.log('=== READ STATUS CHANGED ===');
+      console.log('Previous:', lastReadStatus ? 'Read' : 'Unread');
+      console.log('Current:', currentReadStatus ? 'Read' : 'Unread');
+      console.log('Email:', item.subject || 'Unknown');
+
+      const statusChange = currentReadStatus ? 'marked as Read' : 'marked as Unread';
+      logActivity('warning', `Email ${statusChange}`);
+
+      eventCounter++;
+      updateEventCounter();
+    }
+
+    lastReadStatus = currentReadStatus;
   }
 
   function captureCurrentItemState() {
@@ -428,7 +462,7 @@
     const state = {
       itemType: item.itemType,
       itemId: item.itemId,
-      itemClass: item.itemClass || null  // Add item class
+      itemClass: item.itemClass || null
     };
 
     // Capture subject
@@ -439,14 +473,13 @@
       });
     });
 
+    // Capture read status
     captureQueue.push(cb => {
-      // In read mode, item.read is a boolean
-      // In compose mode, it doesn't exist (new items are unread by default)
       if (typeof item.read !== 'undefined') {
         state.read = item.read;
         console.log('Read status captured:', item.read);
       } else {
-        state.read = null; // Unknown or not applicable
+        state.read = null;
       }
       cb();
     });
@@ -512,11 +545,6 @@
       });
     }
 
-    // NEW: Capture additional metadata for junk detection
-    captureQueue.push(cb => {
-      captureItemMetadata(item, state, cb);
-    });
-
     captureQueue.push(cb => {
       previousItemState = state;
       console.log('=== ITEM STATE CAPTURED ===');
@@ -561,8 +589,6 @@
       itemClass: item.itemClass || null
     };
 
-    // ... rest of the capture code (same as before)
-
     checkQueue.push(cb => {
       getPropertyValue(item, 'subject', (value) => {
         currentState.subject = value;
@@ -570,10 +596,10 @@
       });
     });
 
+    // Capture current read status
     checkQueue.push(cb => {
       if (typeof item.read !== 'undefined') {
         currentState.read = item.read;
-        console.log('Current read status:', item.read);
       } else {
         currentState.read = null;
       }
@@ -634,18 +660,15 @@
       });
     }
 
-    // NEW: Capture metadata
-    checkQueue.push(cb => {
-      captureItemMetadata(item, currentState, cb);
-    });
-
     // Compare states
     checkQueue.push(cb => {
-      console.log('Check performed at:', new Date().toISOString());
       compareStates(previousItemState, currentState);
 
-      // NEW: Check for junk marking
+      // Check for junk marking
       detectJunkMarking(previousItemState, currentState);
+
+      // Check for folder changes (simple approach)
+      detectFolderChangeSimple(previousItemState, currentState);
 
       previousItemState = currentState;
       cb();
@@ -668,7 +691,6 @@
       console.log('Previous State:', oldJSON);
       console.log('Current State:', newJSON);
 
-      // Detailed change detection
       const changes = [];
 
       // Check subject change
@@ -679,6 +701,7 @@
         console.log('✓', change);
       }
 
+      // Check read status change
       if (oldState.read !== newState.read) {
         const oldStatus = oldState.read ? 'Read' : 'Unread';
         const newStatus = newState.read ? 'Read' : 'Unread';
@@ -686,11 +709,6 @@
         changes.push(change);
         logActivity('warning', change);
         console.log('✓', change);
-
-        console.log('=== READ STATUS CHANGED ===');
-        console.log('Previous:', oldStatus);
-        console.log('Current:', newStatus);
-        console.log('Email:', newState.subject);
       }
 
       // Check categories change
@@ -753,6 +771,19 @@
         console.log('✓', change);
       }
 
+      // Check item class change (can indicate junk marking)
+      if (oldState.itemClass !== newState.itemClass) {
+        const change = `Item Class: ${oldState.itemClass} → ${newState.itemClass}`;
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
+
+        if (newState.itemClass?.includes('SMIME') || newState.itemClass?.includes('Rules')) {
+          logActivity('error', 'Email may have been marked as junk or processed by rules');
+          console.log('=== POSSIBLE JUNK MARKING DETECTED ===');
+        }
+      }
+
       // Check conversation change (possible reply/forward)
       if (oldState.conversationId !== newState.conversationId) {
         changes.push('Conversation changed');
@@ -761,28 +792,6 @@
         oldState.conversationId === newState.conversationId) {
         // Same conversation but different item = reply or forward
         detectEmailAction(oldState, newState);
-      }
-
-      // NEW: Check item class change (can indicate junk marking)
-      if (oldState.itemClass !== newState.itemClass) {
-        const change = `Item Class: ${oldState.itemClass} → ${newState.itemClass}`;
-        changes.push(change);
-        logActivity('warning', change);
-        console.log('✓', change);
-
-        // Check if it's junk-related
-        if (newState.itemClass?.includes('SMIME') || newState.itemClass?.includes('Rules')) {
-          logActivity('error', 'Email may have been marked as junk or processed by rules');
-          console.log('=== POSSIBLE JUNK MARKING DETECTED ===');
-        }
-      }
-
-      // NEW: Check for spam headers
-      if (newState.hasSpamHeaders && !oldState.hasSpamHeaders) {
-        const change = 'Spam headers detected';
-        changes.push(change);
-        logActivity('error', change);
-        console.log('✓', change);
       }
 
       if (changes.length > 0) {
@@ -795,7 +804,7 @@
       }
     } else {
       // Only log occasionally to reduce console spam
-      if (Math.random() < 0.05) { // 5% of the time
+      if (Math.random() < 0.02) { // 2% of the time
         console.log('✓ No state changes detected (polling...)');
       }
     }
@@ -829,6 +838,57 @@
         console.log('Detected Action:', actionType);
       }
     }
+  }
+
+  // Detect if email was marked as junk by monitoring item disappearance
+  function detectJunkMarking(oldState, newState) {
+    console.log('=== CHECKING FOR JUNK MARKING ===');
+
+    // Case 1: Item ID changed but we're still in the same context
+    if (oldState.itemId && newState.itemId && oldState.itemId !== newState.itemId) {
+      console.log('Item ID changed - email may have been moved');
+      logActivity('warning', 'Email moved or marked as junk/not junk');
+    }
+
+    // Case 2: Item became null (disappeared)
+    if (oldState.itemId && !newState.itemId) {
+      console.log('Item disappeared - likely moved to Junk or Deleted');
+      logActivity('error', `Email disappeared: "${oldState.subject}" - possibly marked as junk`);
+
+      console.log('=== EMAIL MARKED AS JUNK (LIKELY) ===');
+      console.log('Subject:', oldState.subject);
+      console.log('From:', oldState.from?.emailAddress);
+      console.log('Item ID:', oldState.itemId);
+    }
+  }
+
+  // Simplified folder change detection (no EWS needed)
+  function detectFolderChangeSimple(oldState, newState) {
+    console.log('=== CHECKING FOR FOLDER CHANGE (SIMPLE) ===');
+
+    // If the item ID changed but conversation is the same, it might have moved
+    if (oldState.itemId && newState.itemId && oldState.itemId !== newState.itemId) {
+      // Check if it's the same conversation (not a reply/forward)
+      if (oldState.conversationId === newState.conversationId) {
+        // Check if subject is exactly the same (not "RE:" or "FW:")
+        if (oldState.subject === newState.subject) {
+          console.log('=== POSSIBLE FOLDER MOVE DETECTED ===');
+          console.log('Item IDs differ but conversation and subject same');
+          console.log('Old Item ID:', oldState.itemId);
+          console.log('New Item ID:', newState.itemId);
+          console.log('Subject:', newState.subject);
+
+          logActivity('warning', `Email may have been moved: "${newState.subject}"`);
+
+          eventCounter++;
+          updateEventCounter();
+
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   function logActivity(type, message) {
@@ -903,126 +963,5 @@
 
   console.log('=== TASKPANE.JS FULLY LOADED (IIFE END) ===');
   console.log('Timestamp:', new Date().toISOString());
-
-  // Track folder information
-  let currentFolderName = null;
-
-// Enhanced getPropertyValue to also get folder info
-  function getFolderInfo(item, callback) {
-    if (!item) {
-      callback(null);
-      return;
-    }
-
-    // Try to get parent folder information
-    if (item.itemId && Office.context.mailbox) {
-      // For read mode, we can try to infer folder from item properties
-      // The itemClass can give us hints
-      const itemClass = item.itemClass;
-      console.log('Item Class:', itemClass);
-
-      // Check if item has been moved to Junk
-      // IPM.Note.SMIME.MultipartSigned indicates possible junk detection
-      const possibleJunkIndicators = [
-        'IPM.Note.Rules.ReplyTemplate.Microsoft',
-        'IPM.Note.SMIME'
-      ];
-
-      callback({
-        itemClass: itemClass,
-        possiblyJunk: possibleJunkIndicators.some(indicator => itemClass?.includes(indicator))
-      });
-    } else {
-      callback(null);
-    }
-  }
-
-// Detect if email was marked as junk by monitoring item disappearance
-  function detectJunkMarking(oldState, newState) {
-    console.log('=== CHECKING FOR JUNK MARKING ===');
-
-    // Case 1: Item ID changed but we're still in the same context
-    // This could mean the email was moved
-    if (oldState.itemId && newState.itemId && oldState.itemId !== newState.itemId) {
-      console.log('Item ID changed - email may have been moved');
-      logActivity('warning', 'Email moved or marked as junk/not junk');
-
-      // Check if we lost access to the old item
-      checkIfItemMoved(oldState.itemId, oldState.subject);
-    }
-
-    // Case 2: Item became null (disappeared)
-    if (oldState.itemId && !newState.itemId) {
-      console.log('Item disappeared - likely moved to Junk or Deleted');
-      logActivity('error', `Email disappeared: "${oldState.subject}" - possibly marked as junk`);
-
-      console.log('=== EMAIL MARKED AS JUNK (LIKELY) ===');
-      console.log('Subject:', oldState.subject);
-      console.log('From:', oldState.from?.emailAddress);
-      console.log('Item ID:', oldState.itemId);
-    }
-  }
-
-// Check if an item was moved by trying to access it
-  function checkIfItemMoved(itemId, subject) {
-    console.log('=== CHECKING IF ITEM WAS MOVED ===');
-    console.log('Item ID:', itemId);
-    console.log('Subject:', subject);
-
-    // We can't directly access other folders in Outlook Web Add-ins
-    // But we can infer from the context
-    logActivity('info', `Tracking: "${subject}" may have been moved`);
-  }
-
-// Enhanced state capture with folder information
-  function captureItemMetadata(item, state, callback) {
-    const metadataQueue = new Queue({ results: [], concurrency: 1 });
-
-    // Capture item class (can indicate junk)
-    metadataQueue.push(cb => {
-      if (item.itemClass) {
-        state.itemClass = item.itemClass;
-        console.log('Item Class captured:', item.itemClass);
-      }
-      cb();
-    });
-
-    // Capture normalized subject (for spam detection)
-    metadataQueue.push(cb => {
-      if (state.subject) {
-        state.normalizedSubject = item.normalizedSubject || state.subject;
-      }
-      cb();
-    });
-
-    // Capture internet headers if available (some contain spam scores)
-    metadataQueue.push(cb => {
-      if (item.getAllInternetHeadersAsync) {
-        item.getAllInternetHeadersAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            console.log('Internet Headers:') // , result.value);
-
-            // Look for spam-related headers
-            const headers = result.value.toLowerCase();
-            if (headers.includes('x-spam') || headers.includes('x-forefront')) {
-              console.log('SPAM HEADERS DETECTED');
-              state.hasSpamHeaders = true;
-              logActivity('warning', 'Email has spam-related headers');
-            }
-          }
-          cb();
-        });
-      } else {
-        cb();
-      }
-    });
-
-    metadataQueue.start((err) => {
-      if (err) {
-        console.error('Metadata capture error:', err);
-      }
-      callback();
-    });
-  }
 
 })();
