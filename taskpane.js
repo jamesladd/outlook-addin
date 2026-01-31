@@ -246,6 +246,7 @@ function deepCopyArray(arr) {
   return JSON.parse(JSON.stringify(arr));
 }
 
+// Property Monitoring Functions
 function monitorItemProperties() {
   const item = Office.context.mailbox.item;
 
@@ -315,7 +316,20 @@ function monitorItemProperties() {
         console.log('Removed categories:', JSON.stringify(removedCategories));
 
         // CRITICAL: Only log if there's an actual change
-        if (addedCategories.length > 0 || removedCategories.length > 0) {
+        // Check that:
+        // 1. There are added OR removed categories
+        // 2. The added and removed are NOT the same (which would indicate a bug)
+        const hasChanges = addedCategories.length > 0 || removedCategories.length > 0;
+        const addedAndRemovedAreDifferent = !arraysEqual(addedCategories, removedCategories);
+        const isValidChange = hasChanges && addedAndRemovedAreDifferent;
+
+        console.log('Change validation:', {
+          hasChanges: hasChanges,
+          addedAndRemovedAreDifferent: addedAndRemovedAreDifferent,
+          isValidChange: isValidChange
+        });
+
+        if (isValidChange) {
 
           // Update state BEFORE logging the event to prevent loops
           lastKnownState.categories = deepCopyArray(currentCategories);
@@ -339,13 +353,27 @@ function monitorItemProperties() {
             showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
           }
         } else {
-          console.error('❌ ERROR: Categories marked as changed but no diff!');
-          console.error('This indicates a bug in the comparison logic');
-          console.error('Previous:', previousCategories);
-          console.error('Current:', currentCategories);
+          if (!addedAndRemovedAreDifferent) {
+            console.error('❌ CRITICAL ERROR: Added and Removed categories are THE SAME!');
+            console.error('Added:', JSON.stringify(addedCategories));
+            console.error('Removed:', JSON.stringify(removedCategories));
+            console.error('This indicates the comparison logic is fundamentally broken');
+            console.error('Previous state:', JSON.stringify(previousCategories));
+            console.error('Current state:', JSON.stringify(currentCategories));
 
-          // Force update state anyway to prevent loops
-          lastKnownState.categories = deepCopyArray(currentCategories);
+            // Force a complete reset to break the loop
+            console.log('🔧 Forcing state reset to break potential loop...');
+            lastKnownState.categories = deepCopyArray(currentCategories);
+            categoryCheckInProgress = false;
+            lastCategoryCheck = Date.now() + 10000; // Block checks for 10 seconds
+
+            // Show error notification
+            showInAppNotification('⚠️ Monitoring Error', 'Category detection anomaly - monitoring paused for 10s');
+          } else {
+            console.log('ℹ️ No actual changes detected (empty added and removed)');
+            // Still update state to latest
+            lastKnownState.categories = deepCopyArray(currentCategories);
+          }
         }
       } else {
         console.log('✓ No category change detected');
