@@ -207,8 +207,6 @@
                         <!-- FunctionFile - Required FIRST -->
                         <FunctionFile resid="Commands.Url"/>
 
-                        <!-- All ExtensionPoints BEFORE Runtimes -->
-
                         <!-- Extension Point for Message Read with PINNING -->
                         <ExtensionPoint xsi:type="MessageReadCommandSurface">
                             <OfficeTab id="TabDefault">
@@ -312,28 +310,49 @@
                         <!-- Event-based activation - LaunchEvent Extension Point -->
                         <ExtensionPoint xsi:type="LaunchEvent">
                             <LaunchEvents>
+                                <!-- OnNewMessageCompose -->
                                 <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler"/>
+
+                                <!-- OnNewAppointmentOrganizer -->
                                 <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler"/>
+
+                                <!-- OnMessageAttachmentsChanged -->
                                 <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler"/>
+
+                                <!-- OnAppointmentAttachmentsChanged -->
                                 <LaunchEvent Type="OnAppointmentAttachmentsChanged" FunctionName="onAppointmentAttachmentsChangedHandler"/>
+
+                                <!-- OnMessageRecipientsChanged -->
                                 <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler"/>
+
+                                <!-- OnAppointmentAttendeesChanged -->
                                 <LaunchEvent Type="OnAppointmentAttendeesChanged" FunctionName="onAppointmentAttendeesChangedHandler"/>
+
+                                <!-- OnAppointmentTimeChanged -->
                                 <LaunchEvent Type="OnAppointmentTimeChanged" FunctionName="onAppointmentTimeChangedHandler"/>
+
+                                <!-- OnAppointmentRecurrenceChanged -->
                                 <LaunchEvent Type="OnAppointmentRecurrenceChanged" FunctionName="onAppointmentRecurrenceChangedHandler"/>
+
+                                <!-- OnInfoBarDismissClicked -->
                                 <LaunchEvent Type="OnInfoBarDismissClicked" FunctionName="onInfoBarDismissClickedHandler"/>
-                                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler">
-                                    <SendMode>PromptUser</SendMode>
-                                </LaunchEvent>
-                                <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler">
-                                    <SendMode>PromptUser</SendMode>
-                                </LaunchEvent>
+
+                                <!-- OnMessageSend - NO SendMode child element -->
+                                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler"/>
+
+                                <!-- OnAppointmentSend - NO SendMode child element -->
+                                <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler"/>
+
+                                <!-- OnMessageFromChanged -->
                                 <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler"/>
+
+                                <!-- OnSensitivityLabelChanged -->
                                 <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler"/>
                             </LaunchEvents>
                             <SourceLocation resid="JSRuntime.Url"/>
                         </ExtensionPoint>
 
-                        <!-- Runtimes MUST be LAST in DesktopFormFactor -->
+                        <!-- Runtimes MUST be LAST -->
                         <Runtimes>
                             <Runtime resid="Commands.Url">
                                 <Override type="javascript" resid="JSRuntime.Url"/>
