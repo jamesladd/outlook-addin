@@ -12,6 +12,8 @@ let lastKnownState = {
   categoriesInitialized: false,
   importanceInitialized: false
 };
+let lastCategoryCheck = 0;
+const CATEGORY_CHECK_THROTTLE = 1500; // milliseconds
 
 const STORAGE_KEY = 'InboxAgent_Events';
 
@@ -214,83 +216,128 @@ function setupUIListeners() {
   console.log('✓ UI Event listeners configured');
 }
 
-// Property Monitoring Functions
+// Helper function to compare arrays (more robust version)
+function arraysEqual(a, b) {
+  // Handle null/undefined cases
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+
+  // Check length
+  if (a.length !== b.length) return false;
+
+  // Sort and compare
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+
+  // Deep comparison
+  for (let i = 0; i < sortedA.length; i++) {
+    if (sortedA[i] !== sortedB[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Create a deep copy of an array to prevent reference issues
+function deepCopyArray(arr) {
+  if (!arr) return [];
+  return JSON.parse(JSON.stringify(arr));
+}
+
+// Update monitorItemProperties to include throttling for categories
 function monitorItemProperties() {
   const item = Office.context.mailbox.item;
 
   if (!item || !item.itemId) {
-    // Not in read mode, skip monitoring
     return;
   }
 
-  // Check if we're monitoring a different item
   if (lastKnownState.itemId !== item.itemId) {
     console.log('📌 New item detected, resetting monitoring state');
     resetMonitoringState(item);
     return;
   }
 
-  // IMPORTANT: Don't check if we haven't initialized yet
-  if (lastKnownState.categories === null || lastKnownState.categories === undefined) {
-    console.log('⏳ Waiting for initial state to be set...');
+  if (!lastKnownState.categoriesInitialized) {
+    console.log('⏳ Waiting for categories to initialize...');
+    return;
+  }
+
+  // Throttle category checks to prevent rapid-fire comparisons
+  const now = Date.now();
+  if (now - lastCategoryCheck < CATEGORY_CHECK_THROTTLE) {
+    console.log('⏱️ Throttling category check (too soon)');
     return;
   }
 
   // Monitor Categories
   if (item.categories) {
+    lastCategoryCheck = now; // Update timestamp before async call
+
     item.categories.getAsync((result) => {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
         const currentCategories = result.value || [];
         const previousCategories = lastKnownState.categories || [];
 
-        // Only check if we have a valid previous state
-        if (lastKnownState.categoriesInitialized && !arraysEqual(currentCategories, previousCategories)) {
+        // Detailed logging for debugging
+        console.log('Category Check:', {
+          previous: previousCategories,
+          current: currentCategories,
+          previousLength: previousCategories.length,
+          currentLength: currentCategories.length,
+          areEqual: arraysEqual(currentCategories, previousCategories)
+        });
+
+        // Check if actually different
+        const categoriesChanged = !arraysEqual(currentCategories, previousCategories);
+
+        if (categoriesChanged) {
           console.log('%c🏷️ CATEGORIES CHANGED!', 'color: #8b5cf6; font-size: 14px; font-weight: bold;');
-          console.log('Previous:', previousCategories);
-          console.log('Current:', currentCategories);
+          console.log('Previous (length=' + previousCategories.length + '):', JSON.stringify(previousCategories));
+          console.log('Current (length=' + currentCategories.length + '):', JSON.stringify(currentCategories));
 
           const addedCategories = currentCategories.filter(c => !previousCategories.includes(c));
           const removedCategories = previousCategories.filter(c => !currentCategories.includes(c));
 
-          logEvent('CategoriesChanged', 'Email categories have been modified', {
-            previousCategories: previousCategories,
-            currentCategories: currentCategories,
-            added: addedCategories,
-            removed: removedCategories,
-            itemId: item.itemId,
-            subject: item.subject
-          });
+          console.log('Added:', addedCategories);
+          console.log('Removed:', removedCategories);
 
-          // Show notification
-          if (addedCategories.length > 0) {
-            showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
-          }
-          if (removedCategories.length > 0) {
-            showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
+          // Only log if there's an actual difference
+          if (addedCategories.length > 0 || removedCategories.length > 0) {
+            logEvent('CategoriesChanged', 'Email categories have been modified', {
+              previousCategories: deepCopyArray(previousCategories),
+              currentCategories: deepCopyArray(currentCategories),
+              added: addedCategories,
+              removed: removedCategories,
+              itemId: item.itemId,
+              subject: item.subject
+            });
+
+            if (addedCategories.length > 0) {
+              showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
+            }
+            if (removedCategories.length > 0) {
+              showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
+            }
+          } else {
+            console.warn('⚠️ arraysEqual returned false but no actual diff - this should not happen');
+            console.warn('This might be a reference comparison issue');
           }
         }
 
-        // Update stored state
-        lastKnownState.categories = currentCategories;
-
-        // Mark as initialized after first read
-        if (!lastKnownState.categoriesInitialized) {
-          lastKnownState.categoriesInitialized = true;
-          console.log('✓ Categories initialized:', currentCategories);
-        }
+        // Update stored state with a deep copy
+        lastKnownState.categories = deepCopyArray(currentCategories);
       }
     });
   }
 
-  // Monitor Importance (includes flag status indirectly)
+  // Monitor Importance (keep existing code)
   const currentImportance = item.importance;
 
-  // Only check if we have a valid previous state and it's different
   if (lastKnownState.importanceInitialized &&
     currentImportance !== lastKnownState.importance) {
     console.log('%c⚠️ IMPORTANCE CHANGED!', 'color: #f59e0b; font-size: 14px; font-weight: bold;');
-    console.log('Previous:', lastKnownState.importance);
-    console.log('Current:', currentImportance);
 
     const importanceNames = {
       0: 'Low',
@@ -305,14 +352,10 @@ function monitorItemProperties() {
       subject: item.subject
     });
 
+    lastKnownState.importance = currentImportance;
     showInAppNotification('⚠️ Importance Changed', importanceNames[currentImportance]);
-  }
-
-  // Update stored state
-  lastKnownState.importance = currentImportance;
-
-  // Mark as initialized after first read
-  if (!lastKnownState.importanceInitialized) {
+  } else if (!lastKnownState.importanceInitialized) {
+    lastKnownState.importance = currentImportance;
     lastKnownState.importanceInitialized = true;
     console.log('✓ Importance initialized:', currentImportance);
   }
@@ -322,40 +365,43 @@ function monitorItemProperties() {
 function resetMonitoringState(item) {
   console.log('🔄 Resetting monitoring state for new item');
 
-  // Clear all state flags
+  // Clear all state
   lastKnownState = {
     itemId: item.itemId,
-    importance: null,
+    importance: item.importance,
     categories: null,
     categoriesInitialized: false,
     importanceInitialized: false
   };
 
-  // Get initial importance (synchronous)
-  lastKnownState.importance = item.importance;
+  console.log('Fetching initial categories...');
 
   // Get initial categories (asynchronous)
   if (item.categories) {
     item.categories.getAsync((result) => {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
-        lastKnownState.categories = result.value || [];
-        console.log('✓ Initial categories set:', lastKnownState.categories);
+        // Deep copy to prevent reference issues
+        lastKnownState.categories = deepCopyArray(result.value || []);
 
-        // Don't mark as initialized yet - let the first monitor cycle do it
-        // This prevents false positives on the very first check
+        console.log('✓ Initial categories captured:', lastKnownState.categories);
+
+        // Wait another 1 second before marking as initialized
+        // This ensures we don't catch the very next poll cycle
+        setTimeout(() => {
+          lastKnownState.categoriesInitialized = true;
+          console.log('✓ Categories monitoring now active');
+        }, 1000);
+
       } else {
+        console.error('Failed to get initial categories:', result.error);
         lastKnownState.categories = [];
+        lastKnownState.categoriesInitialized = true;
       }
     });
   } else {
     lastKnownState.categories = [];
+    lastKnownState.categoriesInitialized = true;
   }
-
-  console.log('Initial state captured:', {
-    itemId: lastKnownState.itemId,
-    importance: lastKnownState.importance,
-    categories: 'loading...'
-  });
 }
 
 // Start monitoring
