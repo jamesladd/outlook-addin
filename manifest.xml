@@ -169,7 +169,7 @@
             </Host>
         </Hosts>
 
-        <!-- Resources -->
+        <!-- Resources for 1.0 -->
         <Resources>
             <bt:Images>
                 <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
@@ -179,7 +179,6 @@
             <bt:Urls>
                 <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                 <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
-                <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
             </bt:Urls>
             <bt:ShortStrings>
                 <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
@@ -338,7 +337,7 @@
                 </Host>
             </Hosts>
 
-            <!-- Resources -->
+            <!-- Resources for 1.1 - MUST include ALL resid values used above -->
             <Resources>
                 <bt:Images>
                     <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
@@ -346,10 +345,10 @@
                     <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-80.png"/>
                 </bt:Images>
                 <bt:Urls>
-                    <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
-                    <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
                     <bt:Url id="Runtime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
+                    <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
+                    <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
                 </bt:Urls>
                 <bt:ShortStrings>
                     <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
