@@ -11,6 +11,7 @@
   let isMonitoring = true;
   let monitoringInterval = null;
   let previousItemState = null;
+  let isInitialized = false;
 
   // Initialize Office
   Office.onReady((info) => {
@@ -20,11 +21,16 @@
     console.log('Platform:', info.platform);
 
     if (info.host === Office.HostType.Outlook) {
-      document.getElementById('clear-log').onclick = clearActivityLog;
-      document.getElementById('toggle-monitoring').onclick = toggleMonitoring;
-      document.getElementById('trigger-test-event').onclick = triggerTestEvent;
-
-      initializeTaskpane();
+      // Use setTimeout to ensure DOM is ready
+      setTimeout(() => {
+        try {
+          initializeTaskpane();
+        } catch (error) {
+          console.error('=== INITIALIZATION ERROR ===');
+          console.error('Error:', error);
+          console.error('Stack:', error.stack);
+        }
+      }, 100);
     }
   });
 
@@ -32,25 +38,59 @@
     console.log('=== TASKPANE INITIALIZATION STARTED ===');
     console.log('Timestamp:', new Date().toISOString());
 
-    logActivity('info', 'InboxAgent taskpane initialized');
+    try {
+      // Verify DOM elements exist
+      const clearLogBtn = document.getElementById('clear-log');
+      const toggleMonitoringBtn = document.getElementById('toggle-monitoring');
+      const triggerTestBtn = document.getElementById('trigger-test-event');
 
-    // Check for event runtime
-    checkEventRuntime();
+      console.log('DOM Elements Check:');
+      console.log('  - clear-log:', clearLogBtn ? 'Found' : 'NOT FOUND');
+      console.log('  - toggle-monitoring:', toggleMonitoringBtn ? 'Found' : 'NOT FOUND');
+      console.log('  - trigger-test-event:', triggerTestBtn ? 'Found' : 'NOT FOUND');
 
-    updateCurrentItem();
+      if (!clearLogBtn || !toggleMonitoringBtn || !triggerTestBtn) {
+        throw new Error('Required DOM elements not found');
+      }
 
-    // Add Office event listeners
-    addOfficeEventListeners();
+      // Attach event handlers
+      clearLogBtn.onclick = clearActivityLog;
+      toggleMonitoringBtn.onclick = toggleMonitoring;
+      triggerTestBtn.onclick = triggerTestEvent;
 
-    // Start deep monitoring immediately
-    startDeepMonitoring();
-    logActivity('success', 'Deep monitoring started automatically');
+      console.log('Event handlers attached successfully');
 
-    console.log('=== INBOXAGENT TASKPANE INITIALIZED ===');
-    console.log('Timestamp:', new Date().toISOString());
-    console.log('Office Host:', Office.context.mailbox.diagnostics.hostName);
-    console.log('Office Version:', Office.context.mailbox.diagnostics.hostVersion);
-    console.log('Deep Monitoring: ACTIVE');
+      logActivity('info', 'InboxAgent taskpane initialized');
+
+      // Check for event runtime
+      checkEventRuntime();
+
+      // Update current item
+      updateCurrentItem();
+
+      // Add Office event listeners
+      addOfficeEventListeners();
+
+      // Start deep monitoring immediately
+      setTimeout(() => {
+        startDeepMonitoring();
+        logActivity('success', 'Deep monitoring started automatically');
+      }, 500);
+
+      isInitialized = true;
+
+      console.log('=== INBOXAGENT TASKPANE INITIALIZED SUCCESSFULLY ===');
+      console.log('Timestamp:', new Date().toISOString());
+      console.log('Office Host:', Office.context.mailbox.diagnostics.hostName);
+      console.log('Office Version:', Office.context.mailbox.diagnostics.hostVersion);
+      console.log('Deep Monitoring: ACTIVE');
+
+    } catch (error) {
+      console.error('=== INITIALIZATION ERROR ===');
+      console.error('Error:', error);
+      console.error('Stack:', error.stack);
+      logActivity('error', `Initialization failed: ${error.message}`);
+    }
   }
 
   function checkEventRuntime() {
@@ -58,6 +98,11 @@
     console.log('Timestamp:', new Date().toISOString());
 
     const runtimeStatus = document.getElementById('runtime-status');
+
+    if (!runtimeStatus) {
+      console.error('runtime-status element not found');
+      return;
+    }
 
     if (Office.context.mailbox.item && Office.context.mailbox.addHandlerAsync) {
       runtimeStatus.textContent = 'Active';
@@ -75,6 +120,7 @@
   // Helper function to get property value (handles both read and compose modes)
   function getPropertyValue(item, propertyName, callback) {
     if (!item) {
+      console.log(`getPropertyValue: No item provided for ${propertyName}`);
       callback(null);
       return;
     }
@@ -82,21 +128,31 @@
     const property = item[propertyName];
 
     if (!property) {
+      console.log(`getPropertyValue: Property ${propertyName} not found on item`);
       callback(null);
       return;
     }
 
     // Check if it's a compose mode property (has getAsync)
     if (typeof property.getAsync === 'function') {
-      property.getAsync((result) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded) {
-          callback(result.value);
-        } else {
-          callback(null);
-        }
-      });
+      console.log(`getPropertyValue: Using getAsync for ${propertyName}`);
+      try {
+        property.getAsync((result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log(`getPropertyValue: Got value for ${propertyName}:`, result.value);
+            callback(result.value);
+          } else {
+            console.error(`getPropertyValue: Failed to get ${propertyName}:`, result.error);
+            callback(null);
+          }
+        });
+      } catch (error) {
+        console.error(`getPropertyValue: Exception getting ${propertyName}:`, error);
+        callback(null);
+      }
     } else {
       // Read mode - direct property access
+      console.log(`getPropertyValue: Direct access for ${propertyName}:`, property);
       callback(property);
     }
   }
@@ -160,6 +216,8 @@
       testQueue.start((err) => {
         if (err) {
           console.error('Test queue error:', err);
+        } else {
+          console.log('Test queue completed successfully');
         }
       });
     } else {
@@ -172,53 +230,59 @@
     console.log('=== ADDING OFFICE EVENT LISTENERS IN TASKPANE ===');
     console.log('Timestamp:', new Date().toISOString());
 
-    // Item Changed Event
-    if (Office.context.mailbox.addHandlerAsync) {
-      Office.context.mailbox.addHandlerAsync(
-        Office.EventType.ItemChanged,
-        onItemChanged,
-        (result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            logActivity('success', 'ItemChanged listener attached');
-            console.log('=== EVENT LISTENER ATTACHED ===');
-            console.log('Event Type: ItemChanged');
-            console.log('Timestamp:', new Date().toISOString());
-          } else {
-            logActivity('error', 'Failed to attach ItemChanged listener');
-            console.error('=== EVENT LISTENER FAILED ===');
-            console.error('Event Type: ItemChanged');
-            console.error('Error:', result.error);
-          }
-        }
-      );
-    }
-
-    // Recipients Changed Event (if in compose mode)
-    const item = Office.context.mailbox.item;
-    if (item && item.addHandlerAsync) {
-      const eventTypes = [
-        'RecipientsChanged',
-        'RecurrenceChanged',
-        'AppointmentTimeChanged'
-      ];
-
-      eventTypes.forEach(eventType => {
-        if (Office.EventType[eventType]) {
-          item.addHandlerAsync(
-            Office.EventType[eventType],
-            (args) => onItemPropertyChanged(eventType, args),
-            (result) => {
-              if (result.status === Office.AsyncResultStatus.Succeeded) {
-                logActivity('success', `${eventType} listener attached`);
-                console.log(`=== EVENT LISTENER ATTACHED: ${eventType} ===`);
-              }
+    try {
+      // Item Changed Event
+      if (Office.context.mailbox.addHandlerAsync) {
+        Office.context.mailbox.addHandlerAsync(
+          Office.EventType.ItemChanged,
+          onItemChanged,
+          (result) => {
+            if (result.status === Office.AsyncResultStatus.Succeeded) {
+              logActivity('success', 'ItemChanged listener attached');
+              console.log('=== EVENT LISTENER ATTACHED ===');
+              console.log('Event Type: ItemChanged');
+              console.log('Timestamp:', new Date().toISOString());
+            } else {
+              logActivity('error', 'Failed to attach ItemChanged listener');
+              console.error('=== EVENT LISTENER FAILED ===');
+              console.error('Event Type: ItemChanged');
+              console.error('Error:', result.error);
             }
-          );
-        }
-      });
-    }
+          }
+        );
+      }
 
-    console.log('=== FINISHED ADDING OFFICE EVENT LISTENERS ===');
+      // Recipients Changed Event (if in compose mode)
+      const item = Office.context.mailbox.item;
+      if (item && item.addHandlerAsync) {
+        const eventTypes = [
+          'RecipientsChanged',
+          'RecurrenceChanged',
+          'AppointmentTimeChanged'
+        ];
+
+        eventTypes.forEach(eventType => {
+          if (Office.EventType[eventType]) {
+            item.addHandlerAsync(
+              Office.EventType[eventType],
+              (args) => onItemPropertyChanged(eventType, args),
+              (result) => {
+                if (result.status === Office.AsyncResultStatus.Succeeded) {
+                  logActivity('success', `${eventType} listener attached`);
+                  console.log(`=== EVENT LISTENER ATTACHED: ${eventType} ===`);
+                }
+              }
+            );
+          }
+        });
+      }
+
+      console.log('=== FINISHED ADDING OFFICE EVENT LISTENERS ===');
+    } catch (error) {
+      console.error('=== ERROR ADDING EVENT LISTENERS ===');
+      console.error('Error:', error);
+      console.error('Stack:', error.stack);
+    }
   }
 
   function onItemChanged(args) {
@@ -249,16 +313,26 @@
   }
 
   function updateCurrentItem() {
-    const item = Office.context.mailbox.item;
-    if (!item) {
-      console.log('No item available');
-      document.getElementById('current-item').textContent = 'No item';
+    console.log('=== UPDATING CURRENT ITEM ===');
+
+    const currentItemElement = document.getElementById('current-item');
+    if (!currentItemElement) {
+      console.error('current-item element not found');
       return;
     }
 
+    const item = Office.context.mailbox.item;
+    if (!item) {
+      console.log('No item available');
+      currentItemElement.textContent = 'No item selected';
+      return;
+    }
+
+    console.log('Item available, getting subject...');
+
     getPropertyValue(item, 'subject', (subject) => {
       const displaySubject = subject || '(No Subject)';
-      document.getElementById('current-item').textContent =
+      currentItemElement.textContent =
         displaySubject.substring(0, 30) + (displaySubject.length > 30 ? '...' : '');
 
       console.log('=== CURRENT ITEM UPDATED ===');
@@ -269,9 +343,16 @@
   }
 
   function toggleMonitoring() {
+    console.log('=== TOGGLE MONITORING CLICKED ===');
+
     isMonitoring = !isMonitoring;
     const button = document.getElementById('toggle-monitoring');
     const statusElement = document.getElementById('monitoring-status');
+
+    if (!button || !statusElement) {
+      console.error('Button or status element not found');
+      return;
+    }
 
     if (isMonitoring) {
       button.textContent = 'Pause Monitoring';
@@ -299,16 +380,28 @@
   }
 
   function startDeepMonitoring() {
-    captureCurrentItemState();
+    console.log('=== STARTING DEEP MONITORING ===');
 
-    // Poll for changes every 2 seconds
-    monitoringInterval = setInterval(() => {
-      checkForItemChanges();
-    }, 2000);
+    try {
+      captureCurrentItemState();
 
-    console.log('=== DEEP MONITORING STARTED ===');
-    console.log('Polling Interval: 2000ms');
-    console.log('Timestamp:', new Date().toISOString());
+      // Poll for changes every 2 seconds
+      if (monitoringInterval) {
+        clearInterval(monitoringInterval);
+      }
+
+      monitoringInterval = setInterval(() => {
+        checkForItemChanges();
+      }, 2000);
+
+      console.log('=== DEEP MONITORING STARTED ===');
+      console.log('Polling Interval: 2000ms');
+      console.log('Timestamp:', new Date().toISOString());
+    } catch (error) {
+      console.error('=== ERROR STARTING MONITORING ===');
+      console.error('Error:', error);
+      console.error('Stack:', error.stack);
+    }
   }
 
   function stopDeepMonitoring() {
@@ -324,7 +417,12 @@
 
   function captureCurrentItemState() {
     const item = Office.context.mailbox.item;
-    if (!item) return;
+    if (!item) {
+      console.log('captureCurrentItemState: No item available');
+      return;
+    }
+
+    console.log('=== CAPTURING ITEM STATE ===');
 
     const captureQueue = new Queue({ results: [], concurrency: 1 });
     const state = {
@@ -412,6 +510,8 @@
     captureQueue.start((err) => {
       if (err) {
         console.error('Capture queue error:', err);
+      } else {
+        console.log('Capture queue completed successfully');
       }
     });
   }
@@ -588,44 +688,73 @@
   }
 
   function logActivity(type, message) {
-    const activityLog = document.getElementById('activity-log');
-    const activityItem = document.createElement('div');
-    activityItem.className = `activity-item ${type}`;
+    try {
+      const activityLog = document.getElementById('activity-log');
+      if (!activityLog) {
+        console.error('activity-log element not found');
+        return;
+      }
 
-    const time = document.createElement('div');
-    time.className = 'activity-time';
-    time.textContent = new Date().toLocaleTimeString();
+      const activityItem = document.createElement('div');
+      activityItem.className = `activity-item ${type}`;
 
-    const msg = document.createElement('div');
-    msg.className = 'activity-message';
-    msg.textContent = message;
+      const time = document.createElement('div');
+      time.className = 'activity-time';
+      time.textContent = new Date().toLocaleTimeString();
 
-    activityItem.appendChild(time);
-    activityItem.appendChild(msg);
+      const msg = document.createElement('div');
+      msg.className = 'activity-message';
+      msg.textContent = message;
 
-    // Insert at the top
-    if (activityLog.firstChild) {
-      activityLog.insertBefore(activityItem, activityLog.firstChild);
-    } else {
-      activityLog.appendChild(activityItem);
-    }
+      activityItem.appendChild(time);
+      activityItem.appendChild(msg);
 
-    // Keep only last 50 items
-    while (activityLog.children.length > 50) {
-      activityLog.removeChild(activityLog.lastChild);
+      // Insert at the top
+      if (activityLog.firstChild) {
+        activityLog.insertBefore(activityItem, activityLog.firstChild);
+      } else {
+        activityLog.appendChild(activityItem);
+      }
+
+      // Keep only last 50 items
+      while (activityLog.children.length > 50) {
+        activityLog.removeChild(activityLog.lastChild);
+      }
+    } catch (error) {
+      console.error('Error logging activity:', error);
     }
   }
 
   function clearActivityLog() {
-    const activityLog = document.getElementById('activity-log');
-    activityLog.innerHTML = '';
-    logActivity('info', 'Activity log cleared');
-    console.log('=== ACTIVITY LOG CLEARED ===');
-    console.log('Timestamp:', new Date().toISOString());
+    console.log('=== CLEAR LOG CLICKED ===');
+
+    try {
+      const activityLog = document.getElementById('activity-log');
+      if (!activityLog) {
+        console.error('activity-log element not found');
+        return;
+      }
+
+      activityLog.innerHTML = '';
+      logActivity('info', 'Activity log cleared');
+      console.log('=== ACTIVITY LOG CLEARED ===');
+      console.log('Timestamp:', new Date().toISOString());
+    } catch (error) {
+      console.error('Error clearing log:', error);
+    }
   }
 
   function updateEventCounter() {
-    document.getElementById('events-tracked').textContent = eventCounter;
+    try {
+      const counterElement = document.getElementById('events-tracked');
+      if (counterElement) {
+        counterElement.textContent = eventCounter;
+      } else {
+        console.error('events-tracked element not found');
+      }
+    } catch (error) {
+      console.error('Error updating event counter:', error);
+    }
   }
 
   console.log('=== TASKPANE.JS FULLY LOADED (IIFE END) ===');
