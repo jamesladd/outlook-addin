@@ -52,8 +52,8 @@
 
     <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
-    <!-- VersionOverrides for modern features -->
-    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <!-- VersionOverrides 1.1 - This is the primary version with all features -->
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
 
         <Requirements>
             <bt:Sets DefaultMinVersion="1.14">
@@ -66,14 +66,17 @@
 
                 <DesktopFormFactor>
 
-                    <!-- Runtimes must be inside DesktopFormFactor -->
-                    <Runtimes>
-                        <Runtime resid="WebViewRuntime.Url">
-                            <Override type="javascript" resid="JSRuntime.Url"/>
-                        </Runtime>
-                    </Runtimes>
+                    <!-- FunctionFile is required before Runtimes in 1.1 schema -->
+                    <FunctionFile resid="Commands.Url"/>
 
-                    <!-- Extension Point for Commands -->
+                    <!-- GetStarted section -->
+                    <GetStarted>
+                        <Title resid="GetStarted.Title"/>
+                        <Description resid="GetStarted.Description"/>
+                        <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+                    </GetStarted>
+
+                    <!-- Extension Point for Message Read -->
                     <ExtensionPoint xsi:type="MessageReadCommandSurface">
                         <OfficeTab id="TabDefault">
                             <Group id="msgReadGroup">
@@ -98,6 +101,7 @@
                         </OfficeTab>
                     </ExtensionPoint>
 
+                    <!-- Extension Point for Message Compose -->
                     <ExtensionPoint xsi:type="MessageComposeCommandSurface">
                         <OfficeTab id="TabDefault">
                             <Group id="msgComposeGroup">
@@ -122,6 +126,7 @@
                         </OfficeTab>
                     </ExtensionPoint>
 
+                    <!-- Extension Point for Appointment Organizer -->
                     <ExtensionPoint xsi:type="AppointmentOrganizerCommandSurface">
                         <OfficeTab id="TabDefault">
                             <Group id="apptOrganizerGroup">
@@ -146,6 +151,7 @@
                         </OfficeTab>
                     </ExtensionPoint>
 
+                    <!-- Extension Point for Appointment Attendee -->
                     <ExtensionPoint xsi:type="AppointmentAttendeeCommandSurface">
                         <OfficeTab id="TabDefault">
                             <Group id="apptAttendeeGroup">
@@ -170,55 +176,63 @@
                         </OfficeTab>
                     </ExtensionPoint>
 
-                    <!-- Event-based activation extension points -->
+                    <!-- Event-based activation - LaunchEvent Extension Point -->
                     <ExtensionPoint xsi:type="LaunchEvent">
                         <LaunchEvents>
-                            <!-- OnNewMessageCompose - Triggered when composing a new message -->
+                            <!-- OnNewMessageCompose -->
                             <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler"/>
 
-                            <!-- OnNewAppointmentOrganizer - Triggered when organizing a new appointment -->
+                            <!-- OnNewAppointmentOrganizer -->
                             <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler"/>
 
-                            <!-- OnMessageAttachmentsChanged - Triggered when attachments change -->
+                            <!-- OnMessageAttachmentsChanged -->
                             <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler"/>
 
-                            <!-- OnAppointmentAttachmentsChanged - Triggered when appointment attachments change -->
+                            <!-- OnAppointmentAttachmentsChanged -->
                             <LaunchEvent Type="OnAppointmentAttachmentsChanged" FunctionName="onAppointmentAttachmentsChangedHandler"/>
 
-                            <!-- OnMessageRecipientsChanged - Triggered when recipients change -->
+                            <!-- OnMessageRecipientsChanged -->
                             <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler"/>
 
-                            <!-- OnAppointmentAttendeesChanged - Triggered when attendees change -->
+                            <!-- OnAppointmentAttendeesChanged -->
                             <LaunchEvent Type="OnAppointmentAttendeesChanged" FunctionName="onAppointmentAttendeesChangedHandler"/>
 
-                            <!-- OnAppointmentTimeChanged - Triggered when appointment time changes -->
+                            <!-- OnAppointmentTimeChanged -->
                             <LaunchEvent Type="OnAppointmentTimeChanged" FunctionName="onAppointmentTimeChangedHandler"/>
 
-                            <!-- OnAppointmentRecurrenceChanged - Triggered when recurrence changes -->
+                            <!-- OnAppointmentRecurrenceChanged -->
                             <LaunchEvent Type="OnAppointmentRecurrenceChanged" FunctionName="onAppointmentRecurrenceChangedHandler"/>
 
-                            <!-- OnInfoBarDismissClicked - Triggered when info bar is dismissed -->
+                            <!-- OnInfoBarDismissClicked -->
                             <LaunchEvent Type="OnInfoBarDismissClicked" FunctionName="onInfoBarDismissClickedHandler"/>
 
-                            <!-- OnMessageSend - Triggered before sending a message -->
+                            <!-- OnMessageSend -->
                             <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler">
                                 <SendMode>PromptUser</SendMode>
                             </LaunchEvent>
 
-                            <!-- OnAppointmentSend - Triggered before sending an appointment -->
+                            <!-- OnAppointmentSend -->
                             <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler">
                                 <SendMode>PromptUser</SendMode>
                             </LaunchEvent>
 
-                            <!-- OnMessageFromChanged - Triggered when From field changes (shared mailbox) -->
+                            <!-- OnMessageFromChanged -->
                             <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler"/>
 
-                            <!-- OnSensitivityLabelChanged - Triggered when sensitivity label changes -->
+                            <!-- OnSensitivityLabelChanged -->
                             <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler"/>
                         </LaunchEvents>
 
+                        <!-- Runtime for event handlers -->
                         <SourceLocation resid="JSRuntime.Url"/>
                     </ExtensionPoint>
+
+                    <!-- Runtimes must come AFTER all ExtensionPoints in 1.1 schema -->
+                    <Runtimes>
+                        <Runtime resid="Commands.Url">
+                            <Override type="javascript" resid="JSRuntime.Url"/>
+                        </Runtime>
+                    </Runtimes>
 
                 </DesktopFormFactor>
             </Host>
@@ -232,184 +246,21 @@
                 <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-80.png"/>
             </bt:Images>
             <bt:Urls>
+                <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                 <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
-                <bt:Url id="WebViewRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                 <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
+                <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://jamesladd.github.io/outlook-addin/help"/>
             </bt:Urls>
             <bt:ShortStrings>
                 <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
                 <bt:String id="TaskpaneButton.Label" DefaultValue="Open InboxAgent"/>
+                <bt:String id="GetStarted.Title" DefaultValue="Get started with InboxAgent"/>
             </bt:ShortStrings>
             <bt:LongStrings>
                 <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent task pane to monitor and track email activities"/>
+                <bt:String id="GetStarted.Description" DefaultValue="InboxAgent tracks all your email actions and events. Click 'Open InboxAgent' to get started."/>
             </bt:LongStrings>
         </Resources>
 
-        <!-- VersionOverrides 1.1 for enhanced features -->
-        <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
-
-            <Requirements>
-                <bt:Sets DefaultMinVersion="1.14">
-                    <bt:Set Name="Mailbox"/>
-                </bt:Sets>
-            </Requirements>
-
-            <Hosts>
-                <Host xsi:type="MailHost">
-
-                    <DesktopFormFactor>
-
-                        <!-- Runtimes inside DesktopFormFactor for 1.1 -->
-                        <Runtimes>
-                            <Runtime resid="WebViewRuntime.Url">
-                                <Override type="javascript" resid="JSRuntime.Url"/>
-                            </Runtime>
-                        </Runtimes>
-
-                        <!-- Extension points as before but with enhanced VersionOverrides 1.1 support -->
-                        <ExtensionPoint xsi:type="MessageReadCommandSurface">
-                            <OfficeTab id="TabDefault">
-                                <Group id="msgReadGroup">
-                                    <Label resid="GroupLabel"/>
-                                    <Control xsi:type="Button" id="msgReadOpenPaneButton">
-                                        <Label resid="TaskpaneButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="TaskpaneButton.Label"/>
-                                            <Description resid="TaskpaneButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ShowTaskpane">
-                                            <SourceLocation resid="Taskpane.Url"/>
-                                            <SupportsPinning>true</SupportsPinning>
-                                        </Action>
-                                    </Control>
-                                </Group>
-                            </OfficeTab>
-                        </ExtensionPoint>
-
-                        <ExtensionPoint xsi:type="MessageComposeCommandSurface">
-                            <OfficeTab id="TabDefault">
-                                <Group id="msgComposeGroup">
-                                    <Label resid="GroupLabel"/>
-                                    <Control xsi:type="Button" id="msgComposeOpenPaneButton">
-                                        <Label resid="TaskpaneButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="TaskpaneButton.Label"/>
-                                            <Description resid="TaskpaneButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ShowTaskpane">
-                                            <SourceLocation resid="Taskpane.Url"/>
-                                            <SupportsPinning>true</SupportsPinning>
-                                        </Action>
-                                    </Control>
-                                </Group>
-                            </OfficeTab>
-                        </ExtensionPoint>
-
-                        <ExtensionPoint xsi:type="AppointmentOrganizerCommandSurface">
-                            <OfficeTab id="TabDefault">
-                                <Group id="apptOrganizerGroup">
-                                    <Label resid="GroupLabel"/>
-                                    <Control xsi:type="Button" id="apptOrganizerOpenPaneButton">
-                                        <Label resid="TaskpaneButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="TaskpaneButton.Label"/>
-                                            <Description resid="TaskpaneButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ShowTaskpane">
-                                            <SourceLocation resid="Taskpane.Url"/>
-                                            <SupportsPinning>true</SupportsPinning>
-                                        </Action>
-                                    </Control>
-                                </Group>
-                            </OfficeTab>
-                        </ExtensionPoint>
-
-                        <ExtensionPoint xsi:type="AppointmentAttendeeCommandSurface">
-                            <OfficeTab id="TabDefault">
-                                <Group id="apptAttendeeGroup">
-                                    <Label resid="GroupLabel"/>
-                                    <Control xsi:type="Button" id="apptAttendeeOpenPaneButton">
-                                        <Label resid="TaskpaneButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="TaskpaneButton.Label"/>
-                                            <Description resid="TaskpaneButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ShowTaskpane">
-                                            <SourceLocation resid="Taskpane.Url"/>
-                                            <SupportsPinning>true</SupportsPinning>
-                                        </Action>
-                                    </Control>
-                                </Group>
-                            </OfficeTab>
-                        </ExtensionPoint>
-
-                        <ExtensionPoint xsi:type="LaunchEvent">
-                            <LaunchEvents>
-                                <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler"/>
-                                <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler"/>
-                                <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler"/>
-                                <LaunchEvent Type="OnAppointmentAttachmentsChanged" FunctionName="onAppointmentAttachmentsChangedHandler"/>
-                                <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler"/>
-                                <LaunchEvent Type="OnAppointmentAttendeesChanged" FunctionName="onAppointmentAttendeesChangedHandler"/>
-                                <LaunchEvent Type="OnAppointmentTimeChanged" FunctionName="onAppointmentTimeChangedHandler"/>
-                                <LaunchEvent Type="OnAppointmentRecurrenceChanged" FunctionName="onAppointmentRecurrenceChangedHandler"/>
-                                <LaunchEvent Type="OnInfoBarDismissClicked" FunctionName="onInfoBarDismissClickedHandler"/>
-                                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler">
-                                    <SendMode>PromptUser</SendMode>
-                                </LaunchEvent>
-                                <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler">
-                                    <SendMode>PromptUser</SendMode>
-                                </LaunchEvent>
-                                <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler"/>
-                                <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler"/>
-                            </LaunchEvents>
-                            <SourceLocation resid="JSRuntime.Url"/>
-                        </ExtensionPoint>
-
-                    </DesktopFormFactor>
-                </Host>
-            </Hosts>
-
-            <Resources>
-                <bt:Images>
-                    <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
-                    <bt:Image id="Icon.32x32" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-32.png"/>
-                    <bt:Image id="Icon.80x80" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-80.png"/>
-                </bt:Images>
-                <bt:Urls>
-                    <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
-                    <bt:Url id="WebViewRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
-                    <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
-                </bt:Urls>
-                <bt:ShortStrings>
-                    <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
-                    <bt:String id="TaskpaneButton.Label" DefaultValue="Open InboxAgent"/>
-                </bt:ShortStrings>
-                <bt:LongStrings>
-                    <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent task pane to monitor and track email activities"/>
-                </bt:LongStrings>
-            </Resources>
-
-        </VersionOverrides>
     </VersionOverrides>
 </OfficeApp>
