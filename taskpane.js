@@ -439,6 +439,18 @@
       });
     });
 
+    captureQueue.push(cb => {
+      // In read mode, item.read is a boolean
+      // In compose mode, it doesn't exist (new items are unread by default)
+      if (typeof item.read !== 'undefined') {
+        state.read = item.read;
+        console.log('Read status captured:', item.read);
+      } else {
+        state.read = null; // Unknown or not applicable
+      }
+      cb();
+    });
+
     // Capture categories
     captureQueue.push(cb => {
       getPropertyValue(item, 'categories', (value) => {
@@ -559,6 +571,16 @@
     });
 
     checkQueue.push(cb => {
+      if (typeof item.read !== 'undefined') {
+        currentState.read = item.read;
+        console.log('Current read status:', item.read);
+      } else {
+        currentState.read = null;
+      }
+      cb();
+    });
+
+    checkQueue.push(cb => {
       getPropertyValue(item, 'categories', (value) => {
         currentState.categories = value;
         cb();
@@ -655,6 +677,20 @@
         changes.push(change);
         logActivity('warning', change);
         console.log('✓', change);
+      }
+
+      if (oldState.read !== newState.read) {
+        const oldStatus = oldState.read ? 'Read' : 'Unread';
+        const newStatus = newState.read ? 'Read' : 'Unread';
+        const change = `Read Status: ${oldStatus} → ${newStatus}`;
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
+
+        console.log('=== READ STATUS CHANGED ===');
+        console.log('Previous:', oldStatus);
+        console.log('Current:', newStatus);
+        console.log('Email:', newState.subject);
       }
 
       // Check categories change
