@@ -1000,7 +1000,7 @@
       if (item.getAllInternetHeadersAsync) {
         item.getAllInternetHeadersAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
-            console.log('Internet Headers:', result.value);
+            console.log('Internet Headers:') // , result.value);
 
             // Look for spam-related headers
             const headers = result.value.toLowerCase();
