@@ -384,13 +384,15 @@ function monitorItemProperties() {
         const hasChanges = hasAdditions || hasRemovals;
 
         // Check that added and removed names are completely different
-        const addedAndRemovedAreDifferent = !arraysEqual(addedNames.sort(), removedNames.sort());
+        const overlap = addedNames.filter(name => removedNames.includes(name));
+        const addedAndRemovedAreDifferent = overlap.length === 0;
         const isValidChange = hasChanges && addedAndRemovedAreDifferent;
 
         console.log('Change validation:', {
           hasAdditions: hasAdditions,
           hasRemovals: hasRemovals,
           hasChanges: hasChanges,
+          overlap: overlap,
           addedAndRemovedAreDifferent: addedAndRemovedAreDifferent,
           isValidChange: isValidChange
         });
@@ -422,10 +424,11 @@ function monitorItemProperties() {
           }
         } else {
           if (!addedAndRemovedAreDifferent) {
-            console.error('❌ CRITICAL ERROR: Added and Removed categories are THE SAME!');
+            console.error('❌ CRITICAL ERROR: Added and Removed categories OVERLAP!');
+            console.error('Overlap:', overlap);
             console.error('Added names:', addedNames);
             console.error('Removed names:', removedNames);
-            console.error('This indicates a false positive - categories are actually the same');
+            console.error('This indicates a false positive - same category in both lists');
             console.error('Previous state:', JSON.stringify(previousCategories));
             console.error('Current state:', JSON.stringify(currentCategories));
 
