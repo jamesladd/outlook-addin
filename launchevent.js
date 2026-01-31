@@ -1,17 +1,23 @@
 /* global Office */
 
+console.log('=== LAUNCHEVENT.JS LOADING... ===');
+console.log('Timestamp:', new Date().toISOString());
+console.log('Window object available:', typeof window !== 'undefined');
+console.log('Global object available:', typeof global !== 'undefined');
+
 // IIFE to immediately attach all event listeners
 (function () {
   'use strict';
 
-  console.log('=== LAUNCHEVENT.JS LOADED ===');
+  console.log('=== LAUNCHEVENT.JS IIFE EXECUTING ===');
   console.log('Timestamp:', new Date().toISOString());
 
   // Ensure Office is ready
   Office.onReady(() => {
     console.log('=== OFFICE READY IN LAUNCHEVENT ===');
     console.log('Timestamp:', new Date().toISOString());
-    console.log('Context:', Office.context);
+    console.log('Office.context available:', typeof Office.context !== 'undefined');
+    console.log('Office.context.mailbox available:', typeof Office.context.mailbox !== 'undefined');
   });
 
   // Event Handlers
@@ -145,8 +151,12 @@
     event.completed();
   }
 
+  console.log('=== REGISTERING EVENT HANDLERS ===');
+  console.log('Timestamp:', new Date().toISOString());
+
   // Register functions globally for manifest
   if (typeof global !== 'undefined') {
+    console.log('Registering handlers on global object');
     global.onNewMessageComposeHandler = onNewMessageComposeHandler;
     global.onMessageAttachmentsChangedHandler = onMessageAttachmentsChangedHandler;
     global.onMessageRecipientsChangedHandler = onMessageRecipientsChangedHandler;
@@ -158,6 +168,7 @@
 
   // Also register on window for browser context
   if (typeof window !== 'undefined') {
+    console.log('Registering handlers on window object');
     window.onNewMessageComposeHandler = onNewMessageComposeHandler;
     window.onMessageAttachmentsChangedHandler = onMessageAttachmentsChangedHandler;
     window.onMessageRecipientsChangedHandler = onMessageRecipientsChangedHandler;
@@ -165,6 +176,16 @@
     window.onMessageSendHandler = onMessageSendHandler;
     window.onMessageFromChangedHandler = onMessageFromChangedHandler;
     window.onSensitivityLabelChangedHandler = onSensitivityLabelChangedHandler;
+
+    // Log that they are registered
+    console.log('Window handlers registered:');
+    console.log('  - onNewMessageComposeHandler:', typeof window.onNewMessageComposeHandler);
+    console.log('  - onMessageAttachmentsChangedHandler:', typeof window.onMessageAttachmentsChangedHandler);
+    console.log('  - onMessageRecipientsChangedHandler:', typeof window.onMessageRecipientsChangedHandler);
+    console.log('  - onInfoBarDismissClickedHandler:', typeof window.onInfoBarDismissClickedHandler);
+    console.log('  - onMessageSendHandler:', typeof window.onMessageSendHandler);
+    console.log('  - onMessageFromChangedHandler:', typeof window.onMessageFromChangedHandler);
+    console.log('  - onSensitivityLabelChangedHandler:', typeof window.onSensitivityLabelChangedHandler);
   }
 
   console.log('=== ALL EVENT HANDLERS REGISTERED ===');
@@ -179,3 +200,6 @@
   ]);
 
 })();
+
+console.log('=== LAUNCHEVENT.JS FULLY LOADED ===');
+console.log('Timestamp:', new Date().toISOString());

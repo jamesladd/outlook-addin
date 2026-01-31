@@ -4,7 +4,7 @@
   'use strict';
 
   let eventCounter = 0;
-  let isMonitoring = false;
+  let isMonitoring = true; // Start as true - monitoring starts immediately
   let monitoringInterval = null;
   let previousItemState = null;
   const activityQueue = new Queue({ results: [], concurrency: 1 });
@@ -13,7 +13,7 @@
   Office.onReady((info) => {
     if (info.host === Office.HostType.Outlook) {
       document.getElementById('clear-log').onclick = clearActivityLog;
-      document.getElementById('start-monitoring').onclick = toggleMonitoring;
+      document.getElementById('toggle-monitoring').onclick = toggleMonitoring;
 
       initializeTaskpane();
     }
@@ -21,15 +21,27 @@
 
   function initializeTaskpane() {
     logActivity('info', 'InboxAgent taskpane initialized');
+
+    // Check if event handlers are available (they should be loaded in commands.html runtime)
+    console.log('=== CHECKING EVENT HANDLER AVAILABILITY ===');
+    console.log('Window handlers check:');
+    console.log('  - onNewMessageComposeHandler:', typeof window.onNewMessageComposeHandler);
+    console.log('  - onMessageSendHandler:', typeof window.onMessageSendHandler);
+
     updateCurrentItem();
 
     // Add Office event listeners
     addOfficeEventListeners();
 
+    // Start deep monitoring immediately
+    startDeepMonitoring();
+    logActivity('success', 'Deep monitoring started automatically');
+
     console.log('=== INBOXAGENT TASKPANE INITIALIZED ===');
     console.log('Timestamp:', new Date().toISOString());
     console.log('Office Host:', Office.context.mailbox.diagnostics.hostName);
     console.log('Office Version:', Office.context.mailbox.diagnostics.hostVersion);
+    console.log('Deep Monitoring: ACTIVE');
   }
 
   function addOfficeEventListeners() {
@@ -111,7 +123,7 @@
   function updateCurrentItem() {
     const item = Office.context.mailbox.item;
     if (item) {
-      activityQueue.push((cb) => {
+      activityQueue.push(cb => {
         item.subject.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             const subject = result.value || '(No Subject)';
@@ -133,20 +145,27 @@
 
   function toggleMonitoring() {
     isMonitoring = !isMonitoring;
-    const button = document.getElementById('start-monitoring');
+    const button = document.getElementById('toggle-monitoring');
+    const statusElement = document.getElementById('monitoring-status');
 
     if (isMonitoring) {
-      button.textContent = 'Stop Deep Monitoring';
-      button.classList.remove('btn-primary');
-      button.classList.add('btn-secondary');
+      button.textContent = 'Pause Monitoring';
+      button.classList.remove('btn-success');
+      button.classList.add('btn-warning');
+      statusElement.textContent = 'Active';
+      statusElement.classList.remove('paused');
+      statusElement.classList.add('active');
       startDeepMonitoring();
-      logActivity('success', 'Deep monitoring started');
+      logActivity('success', 'Deep monitoring resumed');
     } else {
-      button.textContent = 'Start Deep Monitoring';
-      button.classList.remove('btn-secondary');
-      button.classList.add('btn-primary');
+      button.textContent = 'Resume Monitoring';
+      button.classList.remove('btn-warning');
+      button.classList.add('btn-success');
+      statusElement.textContent = 'Paused';
+      statusElement.classList.remove('active');
+      statusElement.classList.add('paused');
       stopDeepMonitoring();
-      logActivity('info', 'Deep monitoring stopped');
+      logActivity('warning', 'Deep monitoring paused');
     }
 
     console.log('=== MONITORING TOGGLED ===');
@@ -161,6 +180,10 @@
     monitoringInterval = setInterval(() => {
       checkForItemChanges();
     }, 2000);
+
+    console.log('=== DEEP MONITORING STARTED ===');
+    console.log('Polling Interval: 2000ms');
+    console.log('Timestamp:', new Date().toISOString());
   }
 
   function stopDeepMonitoring() {
@@ -169,6 +192,9 @@
       monitoringInterval = null;
     }
     previousItemState = null;
+
+    console.log('=== DEEP MONITORING STOPPED ===');
+    console.log('Timestamp:', new Date().toISOString());
   }
 
   function captureCurrentItemState() {
@@ -183,7 +209,7 @@
     };
 
     // Capture subject
-    captureQueue.push((cb) => {
+    captureQueue.push(cb => {
       item.subject.getAsync((result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
           state.subject = result.value;
@@ -194,7 +220,7 @@
 
     // Capture categories
     if (item.categories) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         item.categories.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             state.categories = result.value;
@@ -206,7 +232,7 @@
 
     // Capture internet message id (for tracking replies/forwards)
     if (item.internetMessageId) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         state.internetMessageId = item.internetMessageId;
         cb();
       });
@@ -214,7 +240,7 @@
 
     // Capture conversation id
     if (item.conversationId) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         state.conversationId = item.conversationId;
         cb();
       });
@@ -222,7 +248,7 @@
 
     // Capture from (read mode)
     if (item.from) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         item.from.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             state.from = result.value;
@@ -234,7 +260,7 @@
 
     // Capture to recipients
     if (item.to) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         item.to.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             state.to = result.value;
@@ -246,7 +272,7 @@
 
     // Capture cc recipients
     if (item.cc) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         item.cc.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             state.cc = result.value;
@@ -258,7 +284,7 @@
 
     // Capture attachments
     if (item.attachments) {
-      captureQueue.push((cb) => {
+      captureQueue.push(cb => {
         state.attachments = item.attachments.map(att => ({
           id: att.id,
           name: att.name,
@@ -269,7 +295,7 @@
       });
     }
 
-    captureQueue.push((cb) => {
+    captureQueue.push(cb => {
       previousItemState = state;
       console.log('=== ITEM STATE CAPTURED ===');
       console.log('State:', JSON.stringify(state, null, 2));
@@ -296,7 +322,7 @@
     };
 
     // Capture current state
-    checkQueue.push((cb) => {
+    checkQueue.push(cb => {
       item.subject.getAsync((result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
           currentState.subject = result.value;
@@ -306,7 +332,7 @@
     });
 
     if (item.categories) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         item.categories.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             currentState.categories = result.value;
@@ -317,21 +343,21 @@
     }
 
     if (item.internetMessageId) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         currentState.internetMessageId = item.internetMessageId;
         cb();
       });
     }
 
     if (item.conversationId) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         currentState.conversationId = item.conversationId;
         cb();
       });
     }
 
     if (item.from) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         item.from.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             currentState.from = result.value;
@@ -342,7 +368,7 @@
     }
 
     if (item.to) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         item.to.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             currentState.to = result.value;
@@ -353,7 +379,7 @@
     }
 
     if (item.cc) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         item.cc.getAsync((result) => {
           if (result.status === Office.AsyncResultStatus.Succeeded) {
             currentState.cc = result.value;
@@ -364,7 +390,7 @@
     }
 
     if (item.attachments) {
-      checkQueue.push((cb) => {
+      checkQueue.push(cb => {
         currentState.attachments = item.attachments.map(att => ({
           id: att.id,
           name: att.name,
@@ -376,7 +402,7 @@
     }
 
     // Compare states
-    checkQueue.push((cb) => {
+    checkQueue.push(cb => {
       compareStates(previousItemState, currentState);
       previousItemState = currentState;
       cb();

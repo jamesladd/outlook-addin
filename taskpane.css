@@ -88,6 +88,16 @@ section h2 {
     font-weight: 700;
 }
 
+.status-value.paused {
+    color: #ffc107;
+    font-weight: 700;
+}
+
+.status-value.inactive {
+    color: #dc3545;
+    font-weight: 700;
+}
+
 /* Activity Log */
 .activity-log {
     max-height: 300px;
@@ -193,6 +203,28 @@ section h2 {
     background: #5a6268;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+}
+
+.btn-warning {
+    background: #ffc107;
+    color: #333;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
 }
 
 .btn:active {
