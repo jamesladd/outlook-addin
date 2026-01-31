@@ -6,10 +6,11 @@ let activeListeners = 0;
 let eventHistory = [];
 let monitoringInterval = null;
 let lastKnownState = {
-  categories: [],
+  categories: null,
   importance: null,
-  flagStatus: null,
-  itemId: null
+  itemId: null,
+  categoriesInitialized: false,
+  importanceInitialized: false
 };
 
 const STORAGE_KEY = 'InboxAgent_Events';
@@ -229,6 +230,12 @@ function monitorItemProperties() {
     return;
   }
 
+  // IMPORTANT: Don't check if we haven't initialized yet
+  if (lastKnownState.categories === null || lastKnownState.categories === undefined) {
+    console.log('⏳ Waiting for initial state to be set...');
+    return;
+  }
+
   // Monitor Categories
   if (item.categories) {
     item.categories.getAsync((result) => {
@@ -236,8 +243,11 @@ function monitorItemProperties() {
         const currentCategories = result.value || [];
         const previousCategories = lastKnownState.categories || [];
 
-        if (!arraysEqual(currentCategories, previousCategories)) {
+        // Only check if we have a valid previous state
+        if (lastKnownState.categoriesInitialized && !arraysEqual(currentCategories, previousCategories)) {
           console.log('%c🏷️ CATEGORIES CHANGED!', 'color: #8b5cf6; font-size: 14px; font-weight: bold;');
+          console.log('Previous:', previousCategories);
+          console.log('Current:', currentCategories);
 
           const addedCategories = currentCategories.filter(c => !previousCategories.includes(c));
           const removedCategories = previousCategories.filter(c => !currentCategories.includes(c));
@@ -251,9 +261,6 @@ function monitorItemProperties() {
             subject: item.subject
           });
 
-          // Update stored state
-          lastKnownState.categories = currentCategories;
-
           // Show notification
           if (addedCategories.length > 0) {
             showInAppNotification('🏷️ Category Added', addedCategories.join(', '));
@@ -262,14 +269,28 @@ function monitorItemProperties() {
             showInAppNotification('🏷️ Category Removed', removedCategories.join(', '));
           }
         }
+
+        // Update stored state
+        lastKnownState.categories = currentCategories;
+
+        // Mark as initialized after first read
+        if (!lastKnownState.categoriesInitialized) {
+          lastKnownState.categoriesInitialized = true;
+          console.log('✓ Categories initialized:', currentCategories);
+        }
       }
     });
   }
 
   // Monitor Importance (includes flag status indirectly)
   const currentImportance = item.importance;
-  if (currentImportance !== lastKnownState.importance && lastKnownState.importance !== null) {
+
+  // Only check if we have a valid previous state and it's different
+  if (lastKnownState.importanceInitialized &&
+    currentImportance !== lastKnownState.importance) {
     console.log('%c⚠️ IMPORTANCE CHANGED!', 'color: #f59e0b; font-size: 14px; font-weight: bold;');
+    console.log('Previous:', lastKnownState.importance);
+    console.log('Current:', currentImportance);
 
     const importanceNames = {
       0: 'Low',
@@ -284,36 +305,115 @@ function monitorItemProperties() {
       subject: item.subject
     });
 
-    lastKnownState.importance = currentImportance;
     showInAppNotification('⚠️ Importance Changed', importanceNames[currentImportance]);
+  }
+
+  // Update stored state
+  lastKnownState.importance = currentImportance;
+
+  // Mark as initialized after first read
+  if (!lastKnownState.importanceInitialized) {
+    lastKnownState.importanceInitialized = true;
+    console.log('✓ Importance initialized:', currentImportance);
   }
 }
 
 // Reset monitoring state for new item
 function resetMonitoringState(item) {
-  lastKnownState.itemId = item.itemId;
+  console.log('🔄 Resetting monitoring state for new item');
+
+  // Clear all state flags
+  lastKnownState = {
+    itemId: item.itemId,
+    importance: null,
+    categories: null,
+    categoriesInitialized: false,
+    importanceInitialized: false
+  };
+
+  // Get initial importance (synchronous)
   lastKnownState.importance = item.importance;
 
+  // Get initial categories (asynchronous)
   if (item.categories) {
     item.categories.getAsync((result) => {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
         lastKnownState.categories = result.value || [];
-        console.log('Initial categories:', lastKnownState.categories);
+        console.log('✓ Initial categories set:', lastKnownState.categories);
+
+        // Don't mark as initialized yet - let the first monitor cycle do it
+        // This prevents false positives on the very first check
+      } else {
+        lastKnownState.categories = [];
       }
     });
   } else {
     lastKnownState.categories = [];
   }
 
-  // Don't log monitoring started for stored events replay
-  if (eventCounter > 0) {
-    logEvent('MonitoringStarted', 'Started monitoring item properties', {
-      itemId: item.itemId,
-      itemType: item.itemType,
-      subject: item.subject,
-      initialCategories: lastKnownState.categories,
-      initialImportance: lastKnownState.importance
-    });
+  console.log('Initial state captured:', {
+    itemId: lastKnownState.itemId,
+    importance: lastKnownState.importance,
+    categories: 'loading...'
+  });
+}
+
+// Start monitoring
+function startPropertyMonitoring() {
+  // Clear any existing interval
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+  }
+
+  const item = Office.context.mailbox.item;
+  if (item && item.itemId) {
+    console.log('🚀 Starting property monitoring...');
+
+    // Reset state for this item
+    resetMonitoringState(item);
+
+    // Wait 2 seconds before starting polling to let initial state fully settle
+    // This gives time for the async categories.getAsync to complete
+    setTimeout(() => {
+      // Poll every 2 seconds
+      monitoringInterval = setInterval(monitorItemProperties, 2000);
+      console.log('✓ Property monitoring active (polling every 2 seconds)');
+
+      // Log monitoring started (only after delay)
+      logEvent('MonitoringStarted', 'Started monitoring item properties', {
+        itemId: item.itemId,
+        itemType: item.itemType,
+        subject: item.subject
+      });
+
+      // Update button state
+      const toggleBtn = document.getElementById('toggleMonitoringBtn');
+      if (toggleBtn) {
+        toggleBtn.textContent = '⏸️ Stop Monitoring';
+      }
+    }, 2000);
+
+  } else {
+    console.log('⚠️ Cannot start monitoring in compose mode');
+  }
+}
+
+// Stop monitoring
+function stopPropertyMonitoring() {
+  if (monitoringInterval) {
+    clearInterval(monitoringInterval);
+    monitoringInterval = null;
+    console.log('✓ Property monitoring stopped');
+
+    // Reset initialization flags
+    lastKnownState.categoriesInitialized = false;
+    lastKnownState.importanceInitialized = false;
+
+    // Update button state
+    const toggleBtn = document.getElementById('toggleMonitoringBtn');
+    if (toggleBtn) {
+      toggleBtn.textContent = '▶️ Start Monitoring';
+    }
   }
 }
 
