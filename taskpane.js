@@ -426,9 +426,9 @@
 
     const captureQueue = new Queue({ results: [], concurrency: 1 });
     const state = {
-      // timestamp: new Date().toISOString(),  // REMOVED - Don't add timestamp
       itemType: item.itemType,
-      itemId: item.itemId
+      itemId: item.itemId,
+      itemClass: item.itemClass || null  // Add item class
     };
 
     // Capture subject
@@ -500,10 +500,15 @@
       });
     }
 
+    // NEW: Capture additional metadata for junk detection
+    captureQueue.push(cb => {
+      captureItemMetadata(item, state, cb);
+    });
+
     captureQueue.push(cb => {
       previousItemState = state;
       console.log('=== ITEM STATE CAPTURED ===');
-      console.log('Captured at:', new Date().toISOString()); // Log time separately
+      console.log('Captured at:', new Date().toISOString());
       console.log('State:', JSON.stringify(state, null, 2));
       cb();
     });
@@ -524,16 +529,28 @@
     }
 
     const item = Office.context.mailbox.item;
+
+    // Check if item disappeared (marked as junk and moved)
+    if (!item && previousItemState.itemId) {
+      console.log('=== ITEM DISAPPEARED ===');
+      console.log('Previous item:', previousItemState.subject);
+      logActivity('error', `Email disappeared: "${previousItemState.subject}" - possibly marked as junk or deleted`);
+
+      previousItemState = null;
+      return;
+    }
+
     if (!item) return;
 
     const checkQueue = new Queue({ results: [], concurrency: 1 });
     const currentState = {
-      // timestamp: new Date().toISOString(),  // REMOVED - Don't add timestamp
       itemType: item.itemType,
-      itemId: item.itemId
+      itemId: item.itemId,
+      itemClass: item.itemClass || null
     };
 
-    // Capture current state
+    // ... rest of the capture code (same as before)
+
     checkQueue.push(cb => {
       getPropertyValue(item, 'subject', (value) => {
         currentState.subject = value;
@@ -595,10 +612,19 @@
       });
     }
 
+    // NEW: Capture metadata
+    checkQueue.push(cb => {
+      captureItemMetadata(item, currentState, cb);
+    });
+
     // Compare states
     checkQueue.push(cb => {
-      console.log('Check performed at:', new Date().toISOString()); // Log time separately
+      console.log('Check performed at:', new Date().toISOString());
       compareStates(previousItemState, currentState);
+
+      // NEW: Check for junk marking
+      detectJunkMarking(previousItemState, currentState);
+
       previousItemState = currentState;
       cb();
     });
@@ -699,6 +725,28 @@
         oldState.conversationId === newState.conversationId) {
         // Same conversation but different item = reply or forward
         detectEmailAction(oldState, newState);
+      }
+
+      // NEW: Check item class change (can indicate junk marking)
+      if (oldState.itemClass !== newState.itemClass) {
+        const change = `Item Class: ${oldState.itemClass} → ${newState.itemClass}`;
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
+
+        // Check if it's junk-related
+        if (newState.itemClass?.includes('SMIME') || newState.itemClass?.includes('Rules')) {
+          logActivity('error', 'Email may have been marked as junk or processed by rules');
+          console.log('=== POSSIBLE JUNK MARKING DETECTED ===');
+        }
+      }
+
+      // NEW: Check for spam headers
+      if (newState.hasSpamHeaders && !oldState.hasSpamHeaders) {
+        const change = 'Spam headers detected';
+        changes.push(change);
+        logActivity('error', change);
+        console.log('✓', change);
       }
 
       if (changes.length > 0) {
@@ -819,5 +867,126 @@
 
   console.log('=== TASKPANE.JS FULLY LOADED (IIFE END) ===');
   console.log('Timestamp:', new Date().toISOString());
+
+  // Track folder information
+  let currentFolderName = null;
+
+// Enhanced getPropertyValue to also get folder info
+  function getFolderInfo(item, callback) {
+    if (!item) {
+      callback(null);
+      return;
+    }
+
+    // Try to get parent folder information
+    if (item.itemId && Office.context.mailbox) {
+      // For read mode, we can try to infer folder from item properties
+      // The itemClass can give us hints
+      const itemClass = item.itemClass;
+      console.log('Item Class:', itemClass);
+
+      // Check if item has been moved to Junk
+      // IPM.Note.SMIME.MultipartSigned indicates possible junk detection
+      const possibleJunkIndicators = [
+        'IPM.Note.Rules.ReplyTemplate.Microsoft',
+        'IPM.Note.SMIME'
+      ];
+
+      callback({
+        itemClass: itemClass,
+        possiblyJunk: possibleJunkIndicators.some(indicator => itemClass?.includes(indicator))
+      });
+    } else {
+      callback(null);
+    }
+  }
+
+// Detect if email was marked as junk by monitoring item disappearance
+  function detectJunkMarking(oldState, newState) {
+    console.log('=== CHECKING FOR JUNK MARKING ===');
+
+    // Case 1: Item ID changed but we're still in the same context
+    // This could mean the email was moved
+    if (oldState.itemId && newState.itemId && oldState.itemId !== newState.itemId) {
+      console.log('Item ID changed - email may have been moved');
+      logActivity('warning', 'Email moved or marked as junk/not junk');
+
+      // Check if we lost access to the old item
+      checkIfItemMoved(oldState.itemId, oldState.subject);
+    }
+
+    // Case 2: Item became null (disappeared)
+    if (oldState.itemId && !newState.itemId) {
+      console.log('Item disappeared - likely moved to Junk or Deleted');
+      logActivity('error', `Email disappeared: "${oldState.subject}" - possibly marked as junk`);
+
+      console.log('=== EMAIL MARKED AS JUNK (LIKELY) ===');
+      console.log('Subject:', oldState.subject);
+      console.log('From:', oldState.from?.emailAddress);
+      console.log('Item ID:', oldState.itemId);
+    }
+  }
+
+// Check if an item was moved by trying to access it
+  function checkIfItemMoved(itemId, subject) {
+    console.log('=== CHECKING IF ITEM WAS MOVED ===');
+    console.log('Item ID:', itemId);
+    console.log('Subject:', subject);
+
+    // We can't directly access other folders in Outlook Web Add-ins
+    // But we can infer from the context
+    logActivity('info', `Tracking: "${subject}" may have been moved`);
+  }
+
+// Enhanced state capture with folder information
+  function captureItemMetadata(item, state, callback) {
+    const metadataQueue = new Queue({ results: [], concurrency: 1 });
+
+    // Capture item class (can indicate junk)
+    metadataQueue.push(cb => {
+      if (item.itemClass) {
+        state.itemClass = item.itemClass;
+        console.log('Item Class captured:', item.itemClass);
+      }
+      cb();
+    });
+
+    // Capture normalized subject (for spam detection)
+    metadataQueue.push(cb => {
+      if (state.subject) {
+        state.normalizedSubject = item.normalizedSubject || state.subject;
+      }
+      cb();
+    });
+
+    // Capture internet headers if available (some contain spam scores)
+    metadataQueue.push(cb => {
+      if (item.getAllInternetHeadersAsync) {
+        item.getAllInternetHeadersAsync((result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('Internet Headers:', result.value);
+
+            // Look for spam-related headers
+            const headers = result.value.toLowerCase();
+            if (headers.includes('x-spam') || headers.includes('x-forefront')) {
+              console.log('SPAM HEADERS DETECTED');
+              state.hasSpamHeaders = true;
+              logActivity('warning', 'Email has spam-related headers');
+            }
+          }
+          cb();
+        });
+      } else {
+        cb();
+      }
+    });
+
+    metadataQueue.start((err) => {
+      if (err) {
+        console.error('Metadata capture error:', err);
+      }
+      callback();
+    });
+  }
 
 })();
