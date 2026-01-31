@@ -62,11 +62,24 @@ function loadStoredEvents() {
 
       console.log(`📦 Loading ${storedEvents.length} stored events...`);
 
-      // Display stored events in the taskpane
+      // Set the counter to the last event ID to continue numbering
+      if (storedEvents.length > 0) {
+        const lastEvent = storedEvents[storedEvents.length - 1];
+        if (lastEvent.id) {
+          eventCounter = lastEvent.id;
+        }
+      }
+
+      // Copy to history without triggering saves
+      eventHistory = [...storedEvents];
+
+      // Display stored events in the taskpane WITHOUT saving them again
       storedEvents.forEach((event) => {
-        // Don't increment counter for stored events
         displayStoredEvent(event);
       });
+
+      // Update the total counter display
+      document.getElementById('totalEvents').textContent = eventCounter;
 
       if (storedEvents.length > 0) {
         console.log('✓ Stored events loaded successfully');
@@ -77,13 +90,16 @@ function loadStoredEvents() {
   }
 }
 
-// Display a stored event without incrementing counter
+// Display a stored event without saving it again or incrementing counter
 function displayStoredEvent(event) {
   const eventLog = document.getElementById('eventLog');
   const placeholder = eventLog.querySelector('.event-placeholder');
   if (placeholder) {
     placeholder.remove();
   }
+
+  const verboseLogging = document.getElementById('verboseLogging').checked;
+  const timestampEvents = document.getElementById('timestampEvents').checked;
 
   const eventItem = document.createElement('div');
   eventItem.className = 'event-item stored-event';
@@ -93,11 +109,13 @@ function displayStoredEvent(event) {
 
   const eventTypeSpan = document.createElement('span');
   eventTypeSpan.className = 'event-type';
-  eventTypeSpan.textContent = `${event.type}`;
+  eventTypeSpan.textContent = `#${event.id} - ${event.type}`;
 
   const eventTime = document.createElement('span');
   eventTime.className = 'event-time';
-  eventTime.textContent = new Date(event.timestamp).toLocaleTimeString();
+  if (timestampEvents) {
+    eventTime.textContent = new Date(event.timestamp).toLocaleTimeString();
+  }
 
   eventHeader.appendChild(eventTypeSpan);
   eventHeader.appendChild(eventTime);
@@ -109,7 +127,7 @@ function displayStoredEvent(event) {
   eventItem.appendChild(eventHeader);
   eventItem.appendChild(eventDetails);
 
-  if (event.details && Object.keys(event.details).length > 0) {
+  if (verboseLogging && event.details && Object.keys(event.details).length > 0) {
     const eventData = document.createElement('div');
     eventData.className = 'event-data';
     eventData.textContent = JSON.stringify(event.details, null, 2);
@@ -283,15 +301,20 @@ function resetMonitoringState(item) {
         console.log('Initial categories:', lastKnownState.categories);
       }
     });
+  } else {
+    lastKnownState.categories = [];
   }
 
-  logEvent('MonitoringStarted', 'Started monitoring item properties', {
-    itemId: item.itemId,
-    itemType: item.itemType,
-    subject: item.subject,
-    initialCategories: lastKnownState.categories,
-    initialImportance: lastKnownState.importance
-  });
+  // Don't log monitoring started for stored events replay
+  if (eventCounter > 0) {
+    logEvent('MonitoringStarted', 'Started monitoring item properties', {
+      itemId: item.itemId,
+      itemType: item.itemType,
+      subject: item.subject,
+      initialCategories: lastKnownState.categories,
+      initialImportance: lastKnownState.importance
+    });
+  }
 }
 
 // Helper function to compare arrays
@@ -352,15 +375,19 @@ function startPropertyMonitoring() {
   if (item && item.itemId) {
     resetMonitoringState(item);
 
-    // Poll every 2 seconds
-    monitoringInterval = setInterval(monitorItemProperties, 2000);
-    console.log('✓ Property monitoring started (polling every 2 seconds)');
+    // Wait 1 second before starting polling to let initial state settle
+    setTimeout(() => {
+      // Poll every 2 seconds
+      monitoringInterval = setInterval(monitorItemProperties, 2000);
+      console.log('✓ Property monitoring started (polling every 2 seconds)');
 
-    // Update button state
-    const toggleBtn = document.getElementById('toggleMonitoringBtn');
-    if (toggleBtn) {
-      toggleBtn.textContent = '⏸️ Stop Monitoring';
-    }
+      // Update button state
+      const toggleBtn = document.getElementById('toggleMonitoringBtn');
+      if (toggleBtn) {
+        toggleBtn.textContent = '⏸️ Stop Monitoring';
+      }
+    }, 1000);
+
   } else {
     console.log('⚠️ Cannot start monitoring in compose mode');
   }
@@ -762,6 +789,7 @@ function logPropertiesResult(properties) {
 }
 
 // Log event to UI and console
+// Log event to UI and console
 function logEvent(eventType, description, data) {
   eventCounter++;
 
@@ -780,12 +808,13 @@ function logEvent(eventType, description, data) {
   };
   eventHistory.push(eventRecord);
 
-  // Store in localStorage
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(eventHistory.slice(-100)));
-  } catch (e) {
-    console.warn('Could not save to localStorage:', e);
+  // Keep only last 100 events in history
+  if (eventHistory.length > 100) {
+    eventHistory = eventHistory.slice(-100);
   }
+
+  // Store in localStorage (debounced to avoid excessive writes)
+  saveEventsToStorage();
 
   // Console logging
   console.log(`[${timestamp}] ${eventType}: ${description}`, data);
@@ -839,6 +868,25 @@ function logEvent(eventType, description, data) {
 
   // Update counter
   document.getElementById('totalEvents').textContent = eventCounter;
+}
+
+// Debounced save to localStorage to prevent excessive writes
+let saveTimeout = null;
+function saveEventsToStorage() {
+  // Clear any pending save
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
+
+  // Schedule a save after 500ms of no new events
+  saveTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(eventHistory));
+      console.log('💾 Events saved to storage');
+    } catch (e) {
+      console.warn('Could not save to localStorage:', e);
+    }
+  }, 500);
 }
 
 // Update active listeners count
