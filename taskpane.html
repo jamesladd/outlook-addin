@@ -27,6 +27,10 @@
                 <span id="monitoring-status" class="status-value active">Active</span>
             </div>
             <div class="status-item">
+                <span class="status-label">Event Runtime:</span>
+                <span id="runtime-status" class="status-value">Checking...</span>
+            </div>
+            <div class="status-item">
                 <span class="status-label">Current Item:</span>
                 <span id="current-item" class="status-value">Loading...</span>
             </div>
@@ -51,6 +55,7 @@
         <h2>Actions</h2>
         <button id="toggle-monitoring" class="btn btn-warning">Pause Monitoring</button>
         <button id="clear-log" class="btn btn-secondary">Clear Log</button>
+        <button id="trigger-test-event" class="btn btn-primary">Trigger Test Event</button>
     </section>
 
     <section class="info-section">
@@ -71,6 +76,24 @@
 </div>
 
 <script type="text/javascript" src="queue.js"></script>
+
+<!-- IIFE to log taskpane loading immediately -->
+<script type="text/javascript">
+  (function() {
+    console.log('=== TASKPANE.HTML LOADING (IIFE) ===');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Document ready state:', document.readyState);
+    console.log('Office object available:', typeof Office !== 'undefined');
+  })();
+</script>
+
 <script type="text/javascript" src="taskpane.js"></script>
+
+<script type="text/javascript">
+  (function() {
+    console.log('=== TASKPANE.HTML FULLY LOADED (IIFE) ===');
+    console.log('Timestamp:', new Date().toISOString());
+  })();
+</script>
 </body>
 </html>
