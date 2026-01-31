@@ -1,533 +1,481 @@
 /* global Office */
 
-// Global state
-let eventCount = {
-  total: 0,
-  send: 0,
-  change: 0,
-  action: 0
-};
-
-let currentItem = null;
 let eventLog = [];
+const MAX_LOG_ENTRIES = 50;
 
-// Initialize Office
 Office.onReady((info) => {
+  console.log('='.repeat(80));
+  console.log('INBOXAGENT: Office.onReady fired');
+  console.log('Host:', info.host);
+  console.log('Platform:', info.platform);
+  console.log('='.repeat(80));
+
   if (info.host === Office.HostType.Outlook) {
-    console.log("=== InboxAgent TaskPane Initialized ===");
-    console.log("Host:", info.host);
-    console.log("Platform:", info.platform);
-
-    // Set up the task pane
-    setupTaskPane();
-
-    // Load current item
-    loadCurrentItem();
-
-    // Set up item changed handler
-    setupItemChangedHandler();
-
-    // Set up action tracking
-    setupActionTracking();
-
-    logEvent("System", "TaskPane Initialized", {
-      host: info.host,
-      platform: info.platform,
-      timestamp: new Date().toISOString()
-    });
+    initializeTaskpane();
+    setupMailboxEventListeners();
   }
 });
 
-// Setup task pane UI and event handlers
-function setupTaskPane() {
-  console.log("Setting up TaskPane UI...");
+function initializeTaskpane() {
+  logEvent('INFO', 'Taskpane Initialized', 'InboxAgent taskpane has been loaded successfully');
 
-  // Clear log button
-  document.getElementById('clearLog').addEventListener('click', () => {
-    clearEventLog();
-  });
-
-  // Track Reply button
-  document.getElementById('trackReply').addEventListener('click', () => {
-    trackAction('Reply');
-  });
-
-  // Track Forward button
-  document.getElementById('trackForward').addEventListener('click', () => {
-    trackAction('Forward');
-  });
-
-  // Track Reply All button
-  document.getElementById('trackReplyAll').addEventListener('click', () => {
-    trackAction('ReplyAll');
-  });
-
-  // Refresh Item button
-  document.getElementById('refreshItem').addEventListener('click', () => {
-    loadCurrentItem();
-  });
-
-  // Get Properties button
-  document.getElementById('getProperties').addEventListener('click', () => {
-    getAllItemProperties();
-  });
-
-  console.log("TaskPane UI setup complete");
+  if (Office.context.mailbox.item) {
+    updateItemInfo();
+    monitorItemChanges();
+  } else {
+    document.getElementById('mode').textContent = 'No item selected';
+    logEvent('WARNING', 'No Active Item', 'No email or appointment is currently selected');
+  }
 }
 
-// Load current item information
-function loadCurrentItem() {
-  console.log("Loading current item...");
+function updateItemInfo() {
+  const item = Office.context.mailbox.item;
+
+  if (!item) return;
+
+  const mode = item.itemType === Office.MailboxEnums.ItemType.Message ?
+    (item.mode === Office.MailboxEnums.ItemMode.Read ? 'Read Mode' : 'Compose Mode') :
+    'Appointment';
+
+  document.getElementById('mode').textContent = mode;
+  document.getElementById('itemType').textContent = item.itemType || '—';
+
+  // Get subject
+  if (item.subject) {
+    if (typeof item.subject === 'string') {
+      document.getElementById('subject').textContent = item.subject;
+      logEvent('INFO', 'Item Loaded', `Subject: ${item.subject}`);
+    } else if (item.subject.getAsync) {
+      item.subject.getAsync((result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          document.getElementById('subject').textContent = result.value || '(No subject)';
+          logEvent('INFO', 'Item Loaded', `Subject: ${result.value || '(No subject)'}`);
+        }
+      });
+    }
+  }
+
+  // Get from address (read mode only)
+  if (item.from && item.from.getAsync) {
+    item.from.getAsync((result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        const from = result.value;
+        const fromText = from ? `${from.displayName} <${from.emailAddress}>` : '—';
+        document.getElementById('from').textContent = fromText;
+
+        console.log('='.repeat(80));
+        console.log('ITEM DETAILS:');
+        console.log('From:', fromText);
+        console.log('Item Type:', item.itemType);
+        console.log('Item Mode:', mode);
+        console.log('Item ID:', item.itemId);
+        console.log('Conversation ID:', item.conversationId);
+        console.log('='.repeat(80));
+      }
+    });
+  } else {
+    document.getElementById('from').textContent = '—';
+  }
+}
+
+function setupMailboxEventListeners() {
+  console.log('='.repeat(80));
+  console.log('SETTING UP MAILBOX EVENT LISTENERS');
+  console.log('='.repeat(80));
 
   const item = Office.context.mailbox.item;
 
   if (!item) {
-    console.log("No item currently selected");
-    document.getElementById('currentItemInfo').innerHTML =
-      '<p class="placeholder">No item selected</p>';
+    console.warn('No item available to attach event listeners');
     return;
   }
 
-  currentItem = item;
-
-  const itemType = item.itemType;
-  const subject = item.subject;
-  const itemId = item.itemId || "N/A (Compose Mode)";
-  const conversationId = item.conversationId || "N/A";
-
-  let itemInfo = {
-    type: itemType,
-    subject: subject,
-    itemId: itemId,
-    conversationId: conversationId,
-    mode: item.itemId ? "Read" : "Compose"
-  };
-
-  // Get additional properties based on item type
-  if (itemType === Office.MailboxEnums.ItemType.Message) {
-    itemInfo.from = getEmailAddress(item.from);
-    itemInfo.to = getRecipients(item.to);
-    itemInfo.cc = getRecipients(item.cc);
-    itemInfo.internetMessageId = item.internetMessageId || "N/A";
-
-    if (item.itemId) {
-      // Read mode
-      itemInfo.dateTimeCreated = item.dateTimeCreated ?
-        new Date(item.dateTimeCreated).toLocaleString() : "N/A";
-      itemInfo.dateTimeModified = item.dateTimeModified ?
-        new Date(item.dateTimeModified).toLocaleString() : "N/A";
-      itemInfo.sender = getEmailAddress(item.sender);
-    }
-  } else if (itemType === Office.MailboxEnums.ItemType.Appointment) {
-    itemInfo.start = item.start ? new Date(item.start).toLocaleString() : "N/A";
-    itemInfo.end = item.end ? new Date(item.end).toLocaleString() : "N/A";
-    itemInfo.location = item.location || "N/A";
-    itemInfo.organizer = getEmailAddress(item.organizer);
-    itemInfo.requiredAttendees = getRecipients(item.requiredAttendees);
-    itemInfo.optionalAttendees = getRecipients(item.optionalAttendees);
-  }
-
-  // Display item information
-  displayItemInfo(itemInfo);
-
-  // Log the item load
-  logEvent("Item", "Item Loaded", itemInfo);
-
-  console.log("Current item loaded:", itemInfo);
-}
-
-// Display item information in the UI
-function displayItemInfo(itemInfo) {
-  const container = document.getElementById('currentItemInfo');
-
-  let html = '<div class="item-details">';
-
-  for (const [key, value] of Object.entries(itemInfo)) {
-    const displayKey = key.replace(/([A-Z])/g, ' $1').trim();
-    const capitalizedKey = displayKey.charAt(0).toUpperCase() + displayKey.slice(1);
-
-    html += `<p><strong>${capitalizedKey}:</strong> ${value || 'N/A'}</p>`;
-  }
-
-  html += '</div>';
-
-  container.innerHTML = html;
-}
-
-// Helper function to get email address
-function getEmailAddress(emailObj) {
-  if (!emailObj) return "N/A";
-
-  if (typeof emailObj === 'string') return emailObj;
-
-  if (emailObj.emailAddress) {
-    return `${emailObj.displayName || ''} <${emailObj.emailAddress}>`;
-  }
-
-  return "N/A";
-}
-
-// Helper function to get recipients
-function getRecipients(recipientsObj) {
-  if (!recipientsObj) return "N/A";
-
-  // In compose mode, we need to use async methods
-  if (typeof recipientsObj.getAsync === 'function') {
-    return "Loading...";
-  }
-
-  // In read mode, it's an array
-  if (Array.isArray(recipientsObj)) {
-    return recipientsObj.map(r =>
-      `${r.displayName || ''} <${r.emailAddress}>`
-    ).join(', ') || "N/A";
-  }
-
-  return "N/A";
-}
-
-// Setup item changed handler
-function setupItemChangedHandler() {
-  console.log("Setting up item changed handler...");
-
-  if (Office.context.mailbox && Office.context.mailbox.addHandlerAsync) {
+  // Item Changed Event
+  try {
     Office.context.mailbox.addHandlerAsync(
       Office.EventType.ItemChanged,
       onItemChanged,
       (result) => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
-          console.log("Item changed handler registered successfully");
-          logEvent("System", "Item Changed Handler Registered", {
-            status: "Success"
-          });
+          console.log('✓ ItemChanged event listener added successfully');
+          logEvent('SUCCESS', 'Event Listener Added', 'ItemChanged event listener is now active');
         } else {
-          console.error("Failed to register item changed handler:", result.error);
-          logEvent("Error", "Item Changed Handler Registration Failed", {
-            error: result.error.message
-          });
+          console.error('✗ Failed to add ItemChanged listener:', result.error);
         }
       }
     );
+  } catch (error) {
+    console.error('Error adding ItemChanged listener:', error);
+  }
+
+  // Recipients Changed Event (Compose mode)
+  if (item.addHandlerAsync && item.to) {
+    try {
+      item.to.addHandlerAsync(
+        Office.EventType.RecipientsChanged,
+        onRecipientsChanged,
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ RecipientsChanged (TO) event listener added');
+            logEvent('SUCCESS', 'Event Listener Added', 'RecipientsChanged (TO) listener active');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error adding TO RecipientsChanged listener:', error);
+    }
+  }
+
+  if (item.addHandlerAsync && item.cc) {
+    try {
+      item.cc.addHandlerAsync(
+        Office.EventType.RecipientsChanged,
+        onRecipientsChanged,
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ RecipientsChanged (CC) event listener added');
+            logEvent('SUCCESS', 'Event Listener Added', 'RecipientsChanged (CC) listener active');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error adding CC RecipientsChanged listener:', error);
+    }
+  }
+
+  if (item.addHandlerAsync && item.bcc) {
+    try {
+      item.bcc.addHandlerAsync(
+        Office.EventType.RecipientsChanged,
+        onRecipientsChanged,
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ RecipientsChanged (BCC) event listener added');
+            logEvent('SUCCESS', 'Event Listener Added', 'RecipientsChanged (BCC) listener active');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error adding BCC RecipientsChanged listener:', error);
+    }
+  }
+
+  // Attachments Changed Event
+  if (item.addHandlerAsync && item.attachments) {
+    try {
+      item.addHandlerAsync(
+        Office.EventType.AttachmentsChanged,
+        onAttachmentsChanged,
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ AttachmentsChanged event listener added');
+            logEvent('SUCCESS', 'Event Listener Added', 'AttachmentsChanged listener active');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error adding AttachmentsChanged listener:', error);
+    }
+  }
+
+  // Enhanced Context Changed Event
+  if (item.addHandlerAsync) {
+    try {
+      item.addHandlerAsync(
+        Office.EventType.EnhancedLocationsChanged,
+        onEnhancedLocationsChanged,
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ EnhancedLocationsChanged event listener added');
+            logEvent('SUCCESS', 'Event Listener Added', 'EnhancedLocationsChanged listener active');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error adding EnhancedLocationsChanged listener:', error);
+    }
+  }
+
+  // Recurrence Changed Event (for appointments)
+  if (item.addHandlerAsync && item.recurrence) {
+    try {
+      item.addHandlerAsync(
+        Office.EventType.RecurrenceChanged,
+        onRecurrenceChanged,
+        (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ RecurrenceChanged event listener added');
+            logEvent('SUCCESS', 'Event Listener Added', 'RecurrenceChanged listener active');
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error adding RecurrenceChanged listener:', error);
+    }
   }
 }
 
-// Item changed event handler
-function onItemChanged() {
-  console.log("=== ITEM CHANGED EVENT ===");
-  console.log("A new item has been selected");
+// Event Handlers
+function onItemChanged(eventArgs) {
+  console.log('='.repeat(80));
+  console.log('EVENT: ItemChanged');
+  console.log('Type:', eventArgs.type);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Event Args:', eventArgs);
+  console.log('='.repeat(80));
 
-  const item = Office.context.mailbox.item;
-
-  const eventData = {
-    timestamp: new Date().toISOString(),
-    previousItem: currentItem ? {
-      type: currentItem.itemType,
-      subject: currentItem.subject,
-      itemId: currentItem.itemId
-    } : null,
-    newItem: item ? {
-      type: item.itemType,
-      subject: item.subject,
-      itemId: item.itemId
-    } : null
-  };
-
-  console.log("Event Data:", eventData);
-
-  logEvent("Change", "Item Changed", eventData, "event-change");
-
-  // Reload the current item
-  loadCurrentItem();
+  logEvent('EVENT', 'ItemChanged', 'User switched to a different email or item', eventArgs);
+  updateItemInfo();
 }
 
-// Setup action tracking
-function setupActionTracking() {
-  console.log("Setting up action tracking...");
+function onRecipientsChanged(eventArgs) {
+  console.log('='.repeat(80));
+  console.log('EVENT: RecipientsChanged');
+  console.log('Type:', eventArgs.type);
+  console.log('Recipient Type:', eventArgs.changedRecipientFields);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Event Args:', eventArgs);
+  console.log('='.repeat(80));
 
   const item = Office.context.mailbox.item;
 
-  if (!item) {
-    console.log("No item available for action tracking");
-    return;
-  }
+  if (eventArgs.changedRecipientFields) {
+    eventArgs.changedRecipientFields.forEach(field => {
+      let recipientField;
+      if (field === Office.MailboxEnums.RecipientField.To) {
+        recipientField = item.to;
+        logEvent('EVENT', 'RecipientsChanged', 'TO recipients have been modified', eventArgs);
+      } else if (field === Office.MailboxEnums.RecipientField.Cc) {
+        recipientField = item.cc;
+        logEvent('EVENT', 'RecipientsChanged', 'CC recipients have been modified', eventArgs);
+      } else if (field === Office.MailboxEnums.RecipientField.Bcc) {
+        recipientField = item.bcc;
+        logEvent('EVENT', 'RecipientsChanged', 'BCC recipients have been modified', eventArgs);
+      }
 
-  // Track body changes in compose mode
-  if (item.body && typeof item.body.getAsync === 'function') {
-    console.log("Setting up body change tracking...");
-    // Note: There's no direct event for body changes,
-    // but we can check periodically or on explicit actions
+      if (recipientField && recipientField.getAsync) {
+        recipientField.getAsync((result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('Updated Recipients:', result.value);
+          }
+        });
+      }
+    });
   }
+}
 
-  // Track attachment changes
+function onAttachmentsChanged(eventArgs) {
+  console.log('='.repeat(80));
+  console.log('EVENT: AttachmentsChanged');
+  console.log('Type:', eventArgs.type);
+  console.log('Attachment Changes:', eventArgs.attachmentChanges);
+  console.log('Attachment Status:', eventArgs.attachmentStatus);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Event Args:', eventArgs);
+  console.log('='.repeat(80));
+
+  const item = Office.context.mailbox.item;
+  const details = `Attachment modified. Status: ${eventArgs.attachmentStatus || 'Unknown'}`;
+
+  logEvent('EVENT', 'AttachmentsChanged', details, eventArgs);
+
   if (item.attachments) {
-    console.log("Initial attachments:", item.attachments.length);
+    console.log('Current Attachments:', item.attachments);
   }
 }
 
-// Track user actions (Reply, Forward, Reply All)
-function trackAction(actionType) {
-  console.log(`=== TRACKING ACTION: ${actionType} ===`);
+function onEnhancedLocationsChanged(eventArgs) {
+  console.log('='.repeat(80));
+  console.log('EVENT: EnhancedLocationsChanged');
+  console.log('Type:', eventArgs.type);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Event Args:', eventArgs);
+  console.log('='.repeat(80));
+
+  logEvent('EVENT', 'EnhancedLocationsChanged', 'Meeting location has been changed', eventArgs);
+}
+
+function onRecurrenceChanged(eventArgs) {
+  console.log('='.repeat(80));
+  console.log('EVENT: RecurrenceChanged');
+  console.log('Type:', eventArgs.type);
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Event Args:', eventArgs);
+  console.log('='.repeat(80));
+
+  logEvent('EVENT', 'RecurrenceChanged', 'Appointment recurrence pattern has been modified', eventArgs);
+}
+
+// Monitor item changes for tracking actions
+function monitorItemChanges() {
+  const item = Office.context.mailbox.item;
+
+  if (!item) return;
+
+  // Monitor for body changes (could indicate reply/forward)
+  if (item.body && item.body.getAsync) {
+    let previousBodyLength = 0;
+
+    setInterval(() => {
+      item.body.getAsync('text', (result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          const currentLength = result.value.length;
+          if (currentLength > previousBodyLength && previousBodyLength > 0) {
+            console.log('='.repeat(80));
+            console.log('POTENTIAL ACTION: Body content increased');
+            console.log('Previous length:', previousBodyLength);
+            console.log('Current length:', currentLength);
+            console.log('Possible Reply or Forward action');
+            console.log('='.repeat(80));
+          }
+          previousBodyLength = currentLength;
+        }
+      });
+    }, 2000);
+  }
+}
+
+// User Action Tracking Functions
+function trackReplyAction() {
+  console.log('='.repeat(80));
+  console.log('USER ACTION: Reply Tracked');
+  console.log('Timestamp:', new Date().toISOString());
 
   const item = Office.context.mailbox.item;
 
-  if (!item) {
-    console.log("No item available to track action");
-    alert("No item selected");
-    return;
+  if (item) {
+    console.log('Email Details:');
+    console.log('- Item ID:', item.itemId);
+    console.log('- Conversation ID:', item.conversationId);
+    console.log('- Item Type:', item.itemType);
+
+    if (item.subject) {
+      if (typeof item.subject === 'string') {
+        console.log('- Subject:', item.subject);
+        logEvent('ACTION', 'Reply Initiated', `User clicked Reply for: "${item.subject}"`, {
+          itemId: item.itemId,
+          conversationId: item.conversationId,
+          action: 'reply'
+        });
+      } else if (item.subject.getAsync) {
+        item.subject.getAsync((result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('- Subject:', result.value);
+            logEvent('ACTION', 'Reply Initiated', `User clicked Reply for: "${result.value}"`, {
+              itemId: item.itemId,
+              conversationId: item.conversationId,
+              action: 'reply'
+            });
+          }
+        });
+      }
+    }
+
+    if (item.from && item.from.getAsync) {
+      item.from.getAsync((result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          console.log('- From:', result.value);
+        }
+      });
+    }
   }
 
-  const actionData = {
-    action: actionType,
-    timestamp: new Date().toISOString(),
-    item: {
-      type: item.itemType,
-      subject: item.subject,
-      itemId: item.itemId || "N/A",
-      conversationId: item.conversationId
-    }
-  };
-
-  // For read mode items, we can display the compose form
-  if (item.itemId) {
-    switch(actionType) {
-      case 'Reply':
-        console.log("Initiating Reply action");
-        item.displayReplyForm({
-          htmlBody: `<br><br><i>Tracked by InboxAgent at ${new Date().toLocaleString()}</i>`
-        });
-        actionData.details = "Reply form displayed with tracking note";
-        break;
-
-      case 'ReplyAll':
-        console.log("Initiating Reply All action");
-        item.displayReplyAllForm({
-          htmlBody: `<br><br><i>Tracked by InboxAgent at ${new Date().toLocaleString()}</i>`
-        });
-        actionData.details = "Reply All form displayed with tracking note";
-        break;
-
-      case 'Forward':
-        console.log("Initiating Forward action");
-        item.displayReplyForm({
-          htmlBody: `<br><br><i>Forwarded and tracked by InboxAgent at ${new Date().toLocaleString()}</i>`
-        });
-        actionData.details = "Forward form displayed with tracking note";
-        break;
-    }
-  } else {
-    actionData.details = "Item is in compose mode, action cannot be performed";
-    console.log(actionData.details);
-  }
-
-  console.log("Action Data:", actionData);
-
-  logEvent("Action", `User Action: ${actionType}`, actionData, "event-action");
-
-  eventCount.action++;
-  updateStatistics();
+  console.log('='.repeat(80));
 }
 
-// Get all item properties
-function getAllItemProperties() {
-  console.log("=== GETTING ALL ITEM PROPERTIES ===");
+function trackForwardAction() {
+  console.log('='.repeat(80));
+  console.log('USER ACTION: Forward Tracked');
+  console.log('Timestamp:', new Date().toISOString());
 
   const item = Office.context.mailbox.item;
 
-  if (!item) {
-    console.log("No item available");
-    alert("No item selected");
-    return;
+  if (item) {
+    console.log('Email Details:');
+    console.log('- Item ID:', item.itemId);
+    console.log('- Conversation ID:', item.conversationId);
+    console.log('- Item Type:', item.itemType);
+
+    if (item.subject) {
+      if (typeof item.subject === 'string') {
+        console.log('- Subject:', item.subject);
+        logEvent('ACTION', 'Forward Initiated', `User clicked Forward for: "${item.subject}"`, {
+          itemId: item.itemId,
+          conversationId: item.conversationId,
+          action: 'forward'
+        });
+      } else if (item.subject.getAsync) {
+        item.subject.getAsync((result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('- Subject:', result.value);
+            logEvent('ACTION', 'Forward Initiated', `User clicked Forward for: "${result.value}"`, {
+              itemId: item.itemId,
+              conversationId: item.conversationId,
+              action: 'forward'
+            });
+          }
+        });
+      }
+    }
   }
 
-  const properties = {
-    // Basic properties
-    itemType: item.itemType,
-    itemId: item.itemId,
-    conversationId: item.conversationId,
-    subject: item.subject,
-
-    // Dates
-    dateTimeCreated: item.dateTimeCreated ?
-      new Date(item.dateTimeCreated).toISOString() : null,
-    dateTimeModified: item.dateTimeModified ?
-      new Date(item.dateTimeModified).toISOString() : null,
-
-    // Categories
-    categories: item.categories || [],
-
-    // Importance
-    importance: item.importance,
-
-    // Sensitivity
-    sensitivity: item.sensitivity,
-
-    // Internet headers (if available)
-    internetMessageId: item.internetMessageId,
-
-    // Normalized subject
-    normalizedSubject: item.normalizedSubject,
-
-    // Item class
-    itemClass: item.itemClass
-  };
-
-  // Message-specific properties
-  if (item.itemType === Office.MailboxEnums.ItemType.Message) {
-    properties.from = item.from;
-    properties.sender = item.sender;
-    properties.to = item.to;
-    properties.cc = item.cc;
-    properties.bcc = item.bcc;
-    properties.attachments = item.attachments ? item.attachments.length : 0;
-  }
-
-  // Appointment-specific properties
-  if (item.itemType === Office.MailboxEnums.ItemType.Appointment) {
-    properties.start = item.start ? new Date(item.start).toISOString() : null;
-    properties.end = item.end ? new Date(item.end).toISOString() : null;
-    properties.location = item.location;
-    properties.organizer = item.organizer;
-    properties.requiredAttendees = item.requiredAttendees;
-    properties.optionalAttendees = item.optionalAttendees;
-    properties.resources = item.resources;
-    properties.recurrence = item.recurrence;
-  }
-
-  // User profile
-  properties.userProfile = {
-    emailAddress: Office.context.mailbox.userProfile.emailAddress,
-    displayName: Office.context.mailbox.userProfile.displayName,
-    timeZone: Office.context.mailbox.userProfile.timeZone
-  };
-
-  // Diagnostics
-  properties.diagnostics = {
-    hostName: Office.context.mailbox.diagnostics.hostName,
-    hostVersion: Office.context.mailbox.diagnostics.hostVersion,
-    OWAView: Office.context.mailbox.diagnostics.OWAView
-  };
-
-  console.log("All Item Properties:", properties);
-
-  logEvent("Info", "All Properties Retrieved", properties);
+  console.log('='.repeat(80));
 }
 
-// Log event to console and UI
-function logEvent(type, message, data = null, cssClass = "") {
+// Event Logging System
+function logEvent(type, eventName, description, eventArgs = null) {
   const timestamp = new Date().toISOString();
-
-  // Console logging with detailed information
-  console.log(`[${timestamp}] [${type}] ${message}`);
-  if (data) {
-    console.log("Event Data:", data);
-  }
-
-  // Create log entry
   const logEntry = {
     timestamp,
     type,
-    message,
-    data: data ? JSON.stringify(data, null, 2) : null
+    eventName,
+    description,
+    eventArgs
   };
 
-  eventLog.push(logEntry);
+  eventLog.unshift(logEntry);
 
-  // Update UI
-  addLogEntryToUI(logEntry, cssClass);
+  if (eventLog.length > MAX_LOG_ENTRIES) {
+    eventLog.pop();
+  }
 
-  // Update statistics
-  eventCount.total++;
-  if (type === "Send") eventCount.send++;
-  if (type === "Change") eventCount.change++;
-  if (type === "Action") eventCount.action++;
+  console.log(`[${type}] ${eventName}: ${description}`);
+  if (eventArgs) {
+    console.log('Event Arguments:', eventArgs);
+  }
 
-  updateStatistics();
+  renderEventLog();
 }
 
-// Add log entry to UI
-function addLogEntryToUI(logEntry, cssClass = "") {
+function renderEventLog() {
   const container = document.getElementById('eventLogContainer');
 
-  // Remove placeholder if it exists
-  const placeholder = container.querySelector('.placeholder');
-  if (placeholder) {
-    placeholder.remove();
+  if (eventLog.length === 0) {
+    container.innerHTML = '<div class="loading">Waiting for events...</div>';
+    return;
   }
 
-  // Create log entry element
-  const entryDiv = document.createElement('div');
-  entryDiv.className = `log-entry ${cssClass}`;
+  container.innerHTML = eventLog.map(entry => {
+    const cssClass = entry.type === 'ERROR' ? 'error' :
+      entry.type === 'WARNING' ? 'warning' : '';
 
-  const timestampDiv = document.createElement('div');
-  timestampDiv.className = 'log-timestamp';
-  timestampDiv.textContent = new Date(logEntry.timestamp).toLocaleString();
+    const time = new Date(entry.timestamp).toLocaleTimeString();
 
-  const typeDiv = document.createElement('div');
-  typeDiv.className = 'log-type';
-  typeDiv.textContent = `[${logEntry.type}] ${logEntry.message}`;
-
-  entryDiv.appendChild(timestampDiv);
-  entryDiv.appendChild(typeDiv);
-
-  if (logEntry.data) {
-    const detailsDiv = document.createElement('div');
-    detailsDiv.className = 'log-details';
-    detailsDiv.textContent = logEntry.data;
-    entryDiv.appendChild(detailsDiv);
-  }
-
-  // Add to top of log
-  container.insertBefore(entryDiv, container.firstChild);
-
-  // Limit log entries to 50
-  while (container.children.length > 50) {
-    container.removeChild(container.lastChild);
-  }
+    return `
+            <div class="event-item ${cssClass}">
+                <div class="event-timestamp">${time}</div>
+                <div class="event-type">${entry.eventName}</div>
+                <div class="event-details">${entry.description}</div>
+            </div>
+        `;
+  }).join('');
 }
 
-// Clear event log
 function clearEventLog() {
-  console.log("Clearing event log...");
-
   eventLog = [];
-
-  const container = document.getElementById('eventLogContainer');
-  container.innerHTML = '<p class="placeholder">Event log cleared. Waiting for events...</p>';
-
-  logEvent("System", "Event Log Cleared");
-}
-
-// Update statistics display
-function updateStatistics() {
-  document.getElementById('totalEvents').textContent = eventCount.total;
-  document.getElementById('sendEvents').textContent = eventCount.send;
-  document.getElementById('changeEvents').textContent = eventCount.change;
-  document.getElementById('userActions').textContent = eventCount.action;
-}
-
-// Listen for messages from event handlers
-if (window.addEventListener) {
-  window.addEventListener("message", (event) => {
-    console.log("Received message from event handler:", event.data);
-
-    if (event.data && event.data.type === "event-fired") {
-      const eventInfo = event.data.eventInfo;
-
-      logEvent(
-        "LaunchEvent",
-        `Event: ${eventInfo.eventType}`,
-        eventInfo,
-        "event-" + eventInfo.category
-      );
-    }
-  }, false);
-}
-
-// Export functions for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    logEvent,
-    loadCurrentItem,
-    trackAction
-  };
+  renderEventLog();
+  console.log('='.repeat(80));
+  console.log('Event log cleared');
+  console.log('='.repeat(80));
+  logEvent('INFO', 'Log Cleared', 'Event log has been cleared by user');
 }
