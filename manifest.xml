@@ -204,7 +204,7 @@
 
                     <!-- Runtimes at Host level in 1.1 -->
                     <Runtimes>
-                        <Runtime resid="Commands.Url">
+                        <Runtime resid="Runtime.Url">
                             <Override type="javascript" resid="JSRuntime.Url"/>
                         </Runtime>
                     </Runtimes>
@@ -348,6 +348,7 @@
                 <bt:Urls>
                     <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
+                    <bt:Url id="Runtime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
                 </bt:Urls>
                 <bt:ShortStrings>
