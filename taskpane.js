@@ -426,7 +426,6 @@
 
     const captureQueue = new Queue({ results: [], concurrency: 1 });
     const state = {
-      timestamp: new Date().toISOString(),
       itemType: item.itemType,
       itemId: item.itemId
     };
@@ -527,7 +526,6 @@
 
     const checkQueue = new Queue({ results: [], concurrency: 1 });
     const currentState = {
-      timestamp: new Date().toISOString(),
       itemType: item.itemType,
       itemId: item.itemId
     };
@@ -621,39 +619,87 @@
       // Detailed change detection
       const changes = [];
 
+      // Check subject change
       if (oldState.subject !== newState.subject) {
-        changes.push(`Subject: "${oldState.subject}" → "${newState.subject}"`);
+        const change = `Subject changed: "${oldState.subject}" → "${newState.subject}"`;
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
       }
 
-      if (JSON.stringify(oldState.categories) !== JSON.stringify(newState.categories)) {
-        changes.push(`Categories: ${JSON.stringify(oldState.categories)} → ${JSON.stringify(newState.categories)}`);
-        logActivity('warning', `Categories changed`);
+      // Check categories change
+      const oldCategories = JSON.stringify(oldState.categories || []);
+      const newCategories = JSON.stringify(newState.categories || []);
+      if (oldCategories !== newCategories) {
+        const change = `Categories: ${oldCategories} → ${newCategories}`;
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
       }
 
-      if (JSON.stringify(oldState.to) !== JSON.stringify(newState.to)) {
-        changes.push(`To recipients changed`);
+      // Check To recipients change
+      const oldTo = JSON.stringify(oldState.to || []);
+      const newTo = JSON.stringify(newState.to || []);
+      if (oldTo !== newTo) {
+        const change = 'To recipients changed';
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
       }
 
-      if (JSON.stringify(oldState.cc) !== JSON.stringify(newState.cc)) {
-        changes.push(`CC recipients changed`);
+      // Check CC recipients change
+      const oldCc = JSON.stringify(oldState.cc || []);
+      const newCc = JSON.stringify(newState.cc || []);
+      if (oldCc !== newCc) {
+        const change = 'CC recipients changed';
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
       }
 
-      if (JSON.stringify(oldState.attachments) !== JSON.stringify(newState.attachments)) {
-        changes.push(`Attachments changed`);
+      // Check attachments change
+      const oldAttachments = JSON.stringify(oldState.attachments || []);
+      const newAttachments = JSON.stringify(newState.attachments || []);
+      if (oldAttachments !== newAttachments) {
+        const oldCount = oldState.attachments ? oldState.attachments.length : 0;
+        const newCount = newState.attachments ? newState.attachments.length : 0;
+        const change = `Attachments: ${oldCount} → ${newCount}`;
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
       }
 
+      // Check item ID change (different email selected)
+      if (oldState.itemId !== newState.itemId) {
+        const change = 'Different item selected';
+        changes.push(change);
+        logActivity('info', change);
+        console.log('✓', change);
+      }
+
+      // Check conversation change (possible reply/forward)
       if (oldState.conversationId !== newState.conversationId) {
-        changes.push(`Conversation changed (possible reply/forward)`);
+        changes.push('Conversation changed');
+        detectEmailAction(oldState, newState);
+      } else if (oldState.itemId !== newState.itemId &&
+        oldState.conversationId === newState.conversationId) {
+        // Same conversation but different item = reply or forward
         detectEmailAction(oldState, newState);
       }
 
-      changes.forEach(change => {
-        console.log('Change detected:', change);
-        logActivity('warning', change);
-      });
-
-      eventCounter++;
-      updateEventCounter();
+      if (changes.length > 0) {
+        console.log(`Total changes detected: ${changes.length}`);
+        eventCounter++;
+        updateEventCounter();
+      } else {
+        console.log('⚠ JSON differs but no specific property changes found');
+        console.log('This might be due to object property ordering');
+      }
+    } else {
+      // Only log this occasionally to reduce console spam
+      if (Math.random() < 0.1) { // 10% of the time
+        console.log('✓ No state changes (polling...)');
+      }
     }
   }
 
