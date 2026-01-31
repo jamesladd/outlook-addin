@@ -74,6 +74,83 @@ body {
     font-weight: 500;
 }
 
+/* Pin Reminder */
+.pin-reminder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    margin: 0;
+    border-radius: 0;
+    animation: slideDown 0.4s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.reminder-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    position: relative;
+}
+
+.reminder-content svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.reminder-content > div {
+    flex: 1;
+}
+
+.reminder-content strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.reminder-content p {
+    font-size: 12px;
+    margin: 0;
+    opacity: 0.95;
+    line-height: 1.5;
+}
+
+.btn-close-reminder {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.btn-close-reminder:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.pin-reminder.hidden {
+    display: none;
+}
+
 /* Main Content */
 .main-content {
     flex: 1;
@@ -242,6 +319,22 @@ section h2:before {
     animation: slideIn 0.3s ease-out;
 }
 
+.event-item.reply {
+    border-left-color: #10b981;
+}
+
+.event-item.reply-all {
+    border-left-color: #f59e0b;
+}
+
+.event-item.forward {
+    border-left-color: #3b82f6;
+}
+
+.event-item.send {
+    border-left-color: #ef4444;
+}
+
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -291,6 +384,8 @@ section h2:before {
     font-size: 11px;
     color: #374151;
     overflow-x: auto;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 /* Buttons */
@@ -383,20 +478,24 @@ section h2:before {
 }
 
 /* Scrollbar Styling */
-.event-log::-webkit-scrollbar {
+.event-log::-webkit-scrollbar,
+.event-data::-webkit-scrollbar {
     width: 8px;
 }
 
-.event-log::-webkit-scrollbar-track {
+.event-log::-webkit-scrollbar-track,
+.event-data::-webkit-scrollbar-track {
     background: #f3f4f6;
 }
 
-.event-log::-webkit-scrollbar-thumb {
+.event-log::-webkit-scrollbar-thumb,
+.event-data::-webkit-scrollbar-thumb {
     background: #d1d5db;
     border-radius: 4px;
 }
 
-.event-log::-webkit-scrollbar-thumb:hover {
+.event-log::-webkit-scrollbar-thumb:hover,
+.event-data::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
 }
 

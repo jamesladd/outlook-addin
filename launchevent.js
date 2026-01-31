@@ -1,8 +1,10 @@
 /* global Office */
 
-// Ensure Office is ready before doing anything
 (function() {
   'use strict';
+
+  // Shared storage for events (persists across contexts)
+  const STORAGE_KEY = 'InboxAgent_Events';
 
   // Track conversation IDs to detect replies/forwards
   const conversationTracker = new Map();
@@ -11,15 +13,88 @@
 
   console.log('InboxAgent launchevent.js loading...');
 
-  // Office.onReady with error handling
   Office.onReady(() => {
     console.log('%c=== InboxAgent Event Handler Initialized ===', 'color: #0078d4; font-size: 14px; font-weight: bold;');
-
-    // Register all handlers immediately
     registerEventHandlers();
   }).catch((error) => {
     console.error('Office.onReady failed:', error);
   });
+
+  // Store event in roaming settings (persists across sessions)
+  function storeEvent(eventData) {
+    try {
+      // Try to use roaming settings if available
+      if (Office.context.roamingSettings) {
+        const existingData = Office.context.roamingSettings.get(STORAGE_KEY);
+        let events = [];
+
+        try {
+          events = existingData ? JSON.parse(existingData) : [];
+        } catch (e) {
+          console.warn('Failed to parse existing events:', e);
+          events = [];
+        }
+
+        // Add new event
+        events.push(eventData);
+
+        // Keep only last 100 events
+        if (events.length > 100) {
+          events = events.slice(-100);
+        }
+
+        // Save back to roaming settings
+        Office.context.roamingSettings.set(STORAGE_KEY, JSON.stringify(events));
+        Office.context.roamingSettings.saveAsync((asyncResult) => {
+          if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+            console.log('✓ Event stored successfully');
+          } else {
+            console.error('Failed to save event:', asyncResult.error);
+          }
+        });
+      } else {
+        console.warn('Roaming settings not available');
+      }
+    } catch (error) {
+      console.error('Error storing event:', error);
+    }
+  }
+
+  // Show notification to user
+  function showNotification(title, message, eventType) {
+    try {
+      const item = Office.context.mailbox.item;
+      if (item && item.notificationMessages) {
+        const notificationKey = 'inboxagent_' + Date.now();
+
+        item.notificationMessages.addAsync(
+          notificationKey,
+          {
+            type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+            message: `${title}: ${message}`,
+            icon: 'icon-16',
+            persistent: false
+          },
+          (asyncResult) => {
+            if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+              console.log('✓ Notification shown:', title);
+
+              // Auto-remove after 5 seconds
+              setTimeout(() => {
+                if (item.notificationMessages) {
+                  item.notificationMessages.removeAsync(notificationKey);
+                }
+              }, 5000);
+            } else {
+              console.warn('Failed to show notification:', asyncResult.error);
+            }
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Error showing notification:', error);
+    }
+  }
 
   // Register all event handlers
   function registerEventHandlers() {
@@ -49,7 +124,11 @@
     }
   }
 
-  // Enhanced OnNewMessageCompose Event Handler with Reply/Forward Detection
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
+
+  // OnNewMessageCompose Event Handler with Reply/Forward Detection
   function onNewMessageComposeHandler(event) {
     console.log('%c[LAUNCH EVENT] OnNewMessageCompose', 'color: #10b981; font-weight: bold;', event);
 
@@ -64,13 +143,34 @@
 
       // Detect reply or forward by analyzing the compose item
       detectComposeAction(item, (actionType, details) => {
-        logDetailedEvent('OnNewMessageCompose', event, {
+        const eventData = {
+          id: Date.now(),
+          type: 'OnNewMessageCompose',
+          action: actionType,
+          timestamp: new Date().toISOString(),
           description: `User started composing a new message (${actionType})`,
-          itemType: 'Message',
-          mode: 'Compose',
-          action: actionType, // 'NEW', 'REPLY', 'REPLY_ALL', 'FORWARD'
-          ...details
-        });
+          details: details
+        };
+
+        logDetailedEvent('OnNewMessageCompose', event, eventData);
+        storeEvent(eventData);
+
+        // Show notification based on action type
+        let notificationTitle = '✉️ New Email';
+        let notificationMessage = 'InboxAgent is tracking this action';
+
+        if (actionType === 'REPLY') {
+          notificationTitle = '↩️ Reply';
+          notificationMessage = 'Reply detected and logged';
+        } else if (actionType === 'REPLY_ALL') {
+          notificationTitle = '🔄 Reply All';
+          notificationMessage = 'Reply All detected and logged';
+        } else if (actionType === 'FORWARD') {
+          notificationTitle = '➡️ Forward';
+          notificationMessage = 'Forward detected and logged';
+        }
+
+        showNotification(notificationTitle, notificationMessage, actionType);
       });
 
       event.completed();
@@ -84,8 +184,6 @@
   function detectComposeAction(item, callback) {
     try {
       const details = {};
-
-      // Get conversation ID
       const conversationId = item.conversationId;
       details.conversationId = conversationId;
 
@@ -116,14 +214,14 @@
               // Get recipients to help determine action type
               item.to.getAsync((toResult) => {
                 if (toResult.status === Office.AsyncResultStatus.Succeeded) {
-                  const recipients = toResult.value;
+                  const recipients = toResult.value || [];
                   details.recipientCount = recipients.length;
                   details.recipients = recipients.map(r => r.emailAddress);
 
                   // Get CC recipients
                   item.cc.getAsync((ccResult) => {
                     if (ccResult.status === Office.AsyncResultStatus.Succeeded) {
-                      const ccRecipients = ccResult.value;
+                      const ccRecipients = ccResult.value || [];
                       details.ccCount = ccRecipients.length;
                       details.ccRecipients = ccRecipients.map(r => r.emailAddress);
 
@@ -173,11 +271,22 @@
     console.log('%c[LAUNCH EVENT] OnNewAppointmentOrganizer', 'color: #10b981; font-weight: bold;', event);
 
     try {
-      logDetailedEvent('OnNewAppointmentOrganizer', event, {
+      const eventData = {
+        id: Date.now(),
+        type: 'OnNewAppointmentOrganizer',
+        action: 'NEW_APPOINTMENT',
+        timestamp: new Date().toISOString(),
         description: 'User started creating a new appointment',
-        itemType: 'Appointment',
-        mode: 'Organizer'
-      });
+        details: {
+          itemType: 'Appointment',
+          mode: 'Organizer'
+        }
+      };
+
+      logDetailedEvent('OnNewAppointmentOrganizer', event, eventData);
+      storeEvent(eventData);
+      showNotification('📅 New Appointment', 'Appointment creation detected', 'NEW_APPOINTMENT');
+
       event.completed();
     } catch (error) {
       console.error('Error in onNewAppointmentOrganizerHandler:', error);
@@ -191,18 +300,30 @@
 
     try {
       Office.context.mailbox.item.getAttachmentsAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          logDetailedEvent('OnMessageAttachmentsChanged', event, {
-            description: 'Message attachments have been modified',
-            attachmentCount: asyncResult.value.length,
-            attachments: asyncResult.value.map(att => ({
+        const attachments = asyncResult.status === Office.AsyncResultStatus.Succeeded ?
+          asyncResult.value : [];
+
+        const eventData = {
+          id: Date.now(),
+          type: 'OnMessageAttachmentsChanged',
+          action: 'ATTACHMENTS_MODIFIED',
+          timestamp: new Date().toISOString(),
+          description: 'Message attachments have been modified',
+          details: {
+            attachmentCount: attachments.length,
+            attachments: attachments.map(att => ({
               id: att.id,
               name: att.name,
               size: att.size,
               type: att.attachmentType
             }))
-          });
-        }
+          }
+        };
+
+        logDetailedEvent('OnMessageAttachmentsChanged', event, eventData);
+        storeEvent(eventData);
+        showNotification('📎 Attachments Changed', `${attachments.length} attachment(s)`, 'ATTACHMENTS');
+
         event.completed();
       });
     } catch (error) {
@@ -217,17 +338,29 @@
 
     try {
       Office.context.mailbox.item.getAttachmentsAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          logDetailedEvent('OnAppointmentAttachmentsChanged', event, {
-            description: 'Appointment attachments have been modified',
-            attachmentCount: asyncResult.value.length,
-            attachments: asyncResult.value.map(att => ({
+        const attachments = asyncResult.status === Office.AsyncResultStatus.Succeeded ?
+          asyncResult.value : [];
+
+        const eventData = {
+          id: Date.now(),
+          type: 'OnAppointmentAttachmentsChanged',
+          action: 'APPOINTMENT_ATTACHMENTS_MODIFIED',
+          timestamp: new Date().toISOString(),
+          description: 'Appointment attachments have been modified',
+          details: {
+            attachmentCount: attachments.length,
+            attachments: attachments.map(att => ({
               id: att.id,
               name: att.name,
               size: att.size
             }))
-          });
-        }
+          }
+        };
+
+        logDetailedEvent('OnAppointmentAttachmentsChanged', event, eventData);
+        storeEvent(eventData);
+        showNotification('📎 Appointment Attachments', `${attachments.length} attachment(s)`, 'ATTACHMENTS');
+
         event.completed();
       });
     } catch (error) {
@@ -242,29 +375,43 @@
 
     try {
       const item = Office.context.mailbox.item;
-      const recipientData = {};
 
       item.to.getAsync((toResult) => {
-        recipientData.to = toResult.value || [];
+        const toRecipients = toResult.status === Office.AsyncResultStatus.Succeeded ?
+          toResult.value : [];
 
         item.cc.getAsync((ccResult) => {
-          recipientData.cc = ccResult.value || [];
+          const ccRecipients = ccResult.status === Office.AsyncResultStatus.Succeeded ?
+            ccResult.value : [];
 
           item.bcc.getAsync((bccResult) => {
-            recipientData.bcc = bccResult.value || [];
+            const bccRecipients = bccResult.status === Office.AsyncResultStatus.Succeeded ?
+              bccResult.value : [];
 
-            logDetailedEvent('OnMessageRecipientsChanged', event, {
+            const eventData = {
+              id: Date.now(),
+              type: 'OnMessageRecipientsChanged',
+              action: 'RECIPIENTS_MODIFIED',
+              timestamp: new Date().toISOString(),
               description: 'Message recipients have been modified',
-              changedRecipients: event.changedRecipientFields || [],
-              toCount: recipientData.to.length,
-              ccCount: recipientData.cc.length,
-              bccCount: recipientData.bcc.length,
-              recipients: {
-                to: recipientData.to.map(r => r.emailAddress),
-                cc: recipientData.cc.map(r => r.emailAddress),
-                bcc: recipientData.bcc.map(r => r.emailAddress)
+              details: {
+                changedRecipientFields: event.changedRecipientFields || [],
+                toCount: toRecipients.length,
+                ccCount: ccRecipients.length,
+                bccCount: bccRecipients.length,
+                recipients: {
+                  to: toRecipients.map(r => r.emailAddress),
+                  cc: ccRecipients.map(r => r.emailAddress),
+                  bcc: bccRecipients.map(r => r.emailAddress)
+                }
               }
-            });
+            };
+
+            logDetailedEvent('OnMessageRecipientsChanged', event, eventData);
+            storeEvent(eventData);
+
+            const totalRecipients = toRecipients.length + ccRecipients.length + bccRecipients.length;
+            showNotification('👥 Recipients Changed', `${totalRecipients} recipient(s)`, 'RECIPIENTS');
 
             event.completed();
           });
@@ -282,16 +429,35 @@
 
     try {
       Office.context.mailbox.item.requiredAttendees.getAsync((reqResult) => {
+        const requiredAttendees = reqResult.status === Office.AsyncResultStatus.Succeeded ?
+          reqResult.value : [];
+
         Office.context.mailbox.item.optionalAttendees.getAsync((optResult) => {
-          logDetailedEvent('OnAppointmentAttendeesChanged', event, {
+          const optionalAttendees = optResult.status === Office.AsyncResultStatus.Succeeded ?
+            optResult.value : [];
+
+          const eventData = {
+            id: Date.now(),
+            type: 'OnAppointmentAttendeesChanged',
+            action: 'ATTENDEES_MODIFIED',
+            timestamp: new Date().toISOString(),
             description: 'Appointment attendees have been modified',
-            requiredCount: reqResult.value ? reqResult.value.length : 0,
-            optionalCount: optResult.value ? optResult.value.length : 0,
-            attendees: {
-              required: reqResult.value ? reqResult.value.map(a => a.emailAddress) : [],
-              optional: optResult.value ? optResult.value.map(a => a.emailAddress) : []
+            details: {
+              requiredCount: requiredAttendees.length,
+              optionalCount: optionalAttendees.length,
+              attendees: {
+                required: requiredAttendees.map(a => a.emailAddress),
+                optional: optionalAttendees.map(a => a.emailAddress)
+              }
             }
-          });
+          };
+
+          logDetailedEvent('OnAppointmentAttendeesChanged', event, eventData);
+          storeEvent(eventData);
+
+          const totalAttendees = requiredAttendees.length + optionalAttendees.length;
+          showNotification('👥 Attendees Changed', `${totalAttendees} attendee(s)`, 'ATTENDEES');
+
           event.completed();
         });
       });
@@ -307,13 +473,33 @@
 
     try {
       Office.context.mailbox.item.start.getAsync((startResult) => {
+        const startTime = startResult.status === Office.AsyncResultStatus.Succeeded ?
+          startResult.value : null;
+
         Office.context.mailbox.item.end.getAsync((endResult) => {
-          logDetailedEvent('OnAppointmentTimeChanged', event, {
+          const endTime = endResult.status === Office.AsyncResultStatus.Succeeded ?
+            endResult.value : null;
+
+          const duration = (startTime && endTime) ?
+            (new Date(endTime) - new Date(startTime)) / 60000 + ' minutes' : 'Unknown';
+
+          const eventData = {
+            id: Date.now(),
+            type: 'OnAppointmentTimeChanged',
+            action: 'TIME_MODIFIED',
+            timestamp: new Date().toISOString(),
             description: 'Appointment time has been modified',
-            startTime: startResult.value,
-            endTime: endResult.value,
-            duration: (new Date(endResult.value) - new Date(startResult.value)) / 60000 + ' minutes'
-          });
+            details: {
+              startTime: startTime,
+              endTime: endTime,
+              duration: duration
+            }
+          };
+
+          logDetailedEvent('OnAppointmentTimeChanged', event, eventData);
+          storeEvent(eventData);
+          showNotification('🕒 Time Changed', 'Appointment time updated', 'TIME');
+
           event.completed();
         });
       });
@@ -329,14 +515,26 @@
 
     try {
       Office.context.mailbox.item.recurrence.getAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          logDetailedEvent('OnAppointmentRecurrenceChanged', event, {
-            description: 'Appointment recurrence pattern has been modified',
-            recurrence: asyncResult.value,
-            seriesTime: asyncResult.value ? asyncResult.value.seriesTime : null,
-            recurrenceType: asyncResult.value ? asyncResult.value.recurrenceType : 'none'
-          });
-        }
+        const recurrence = asyncResult.status === Office.AsyncResultStatus.Succeeded ?
+          asyncResult.value : null;
+
+        const eventData = {
+          id: Date.now(),
+          type: 'OnAppointmentRecurrenceChanged',
+          action: 'RECURRENCE_MODIFIED',
+          timestamp: new Date().toISOString(),
+          description: 'Appointment recurrence pattern has been modified',
+          details: {
+            recurrence: recurrence,
+            seriesTime: recurrence ? recurrence.seriesTime : null,
+            recurrenceType: recurrence ? recurrence.recurrenceType : 'none'
+          }
+        };
+
+        logDetailedEvent('OnAppointmentRecurrenceChanged', event, eventData);
+        storeEvent(eventData);
+        showNotification('🔄 Recurrence Changed', 'Recurrence pattern updated', 'RECURRENCE');
+
         event.completed();
       });
     } catch (error) {
@@ -350,10 +548,20 @@
     console.log('%c[LAUNCH EVENT] OnInfoBarDismissClicked', 'color: #10b981; font-weight: bold;', event);
 
     try {
-      logDetailedEvent('OnInfoBarDismissClicked', event, {
+      const eventData = {
+        id: Date.now(),
+        type: 'OnInfoBarDismissClicked',
+        action: 'INFOBAR_DISMISSED',
+        timestamp: new Date().toISOString(),
         description: 'User dismissed an information bar',
-        infobarKey: event.infobarType || 'unknown'
-      });
+        details: {
+          infobarKey: event.infobarType || 'unknown'
+        }
+      };
+
+      logDetailedEvent('OnInfoBarDismissClicked', event, eventData);
+      storeEvent(eventData);
+
       event.completed();
     } catch (error) {
       console.error('Error in onInfoBarDismissClickedHandler:', error);
@@ -369,6 +577,8 @@
       Office.context.mailbox.item.subject.getAsync((subjectResult) => {
         Office.context.mailbox.item.to.getAsync((toResult) => {
           const subject = subjectResult.value || '';
+          const recipients = toResult.value || [];
+
           const isReply = subject.match(/^(RE:|Re:)/i);
           const isForward = subject.match(/^(FW:|Fw:|FWD:)/i);
 
@@ -378,13 +588,23 @@
 
           console.log(`%c📤 ${sendAction} DETECTED!`, 'color: #ef4444; font-size: 14px; font-weight: bold;');
 
-          logDetailedEvent('OnMessageSend', event, {
-            description: `User is attempting to send a message (${sendAction})`,
-            sendAction: sendAction,
-            subject: subject,
-            recipientCount: toResult.value ? toResult.value.length : 0,
-            recipients: toResult.value ? toResult.value.map(r => r.emailAddress) : []
-          });
+          const eventData = {
+            id: Date.now(),
+            type: 'OnMessageSend',
+            action: sendAction,
+            timestamp: new Date().toISOString(),
+            description: `User is sending a message (${sendAction})`,
+            details: {
+              sendAction: sendAction,
+              subject: subject,
+              recipientCount: recipients.length,
+              recipients: recipients.map(r => r.emailAddress)
+            }
+          };
+
+          logDetailedEvent('OnMessageSend', event, eventData);
+          storeEvent(eventData);
+          showNotification('📤 Sending Email', sendAction, sendAction);
 
           // Always allow send
           event.completed({ allowEvent: true });
@@ -404,12 +624,25 @@
     try {
       Office.context.mailbox.item.subject.getAsync((subjectResult) => {
         Office.context.mailbox.item.requiredAttendees.getAsync((attendeesResult) => {
-          logDetailedEvent('OnAppointmentSend', event, {
-            description: 'User is attempting to send an appointment',
-            subject: subjectResult.value || '',
-            attendeeCount: attendeesResult.value ? attendeesResult.value.length : 0,
-            attendees: attendeesResult.value ? attendeesResult.value.map(a => a.emailAddress) : []
-          });
+          const subject = subjectResult.value || '';
+          const attendees = attendeesResult.value || [];
+
+          const eventData = {
+            id: Date.now(),
+            type: 'OnAppointmentSend',
+            action: 'SEND_APPOINTMENT',
+            timestamp: new Date().toISOString(),
+            description: 'User is sending an appointment',
+            details: {
+              subject: subject,
+              attendeeCount: attendees.length,
+              attendees: attendees.map(a => a.emailAddress)
+            }
+          };
+
+          logDetailedEvent('OnAppointmentSend', event, eventData);
+          storeEvent(eventData);
+          showNotification('📤 Sending Appointment', 'Appointment being sent', 'SEND_APPOINTMENT');
 
           // Always allow send
           event.completed({ allowEvent: true });
@@ -428,13 +661,25 @@
 
     try {
       Office.context.mailbox.item.from.getAsync((asyncResult) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          logDetailedEvent('OnMessageFromChanged', event, {
-            description: 'Message "From" field has been changed',
-            from: asyncResult.value ? asyncResult.value.emailAddress : 'unknown',
-            displayName: asyncResult.value ? asyncResult.value.displayName : 'unknown'
-          });
-        }
+        const fromInfo = asyncResult.status === Office.AsyncResultStatus.Succeeded ?
+          asyncResult.value : null;
+
+        const eventData = {
+          id: Date.now(),
+          type: 'OnMessageFromChanged',
+          action: 'FROM_CHANGED',
+          timestamp: new Date().toISOString(),
+          description: 'Message "From" field has been changed',
+          details: {
+            from: fromInfo ? fromInfo.emailAddress : 'unknown',
+            displayName: fromInfo ? fromInfo.displayName : 'unknown'
+          }
+        };
+
+        logDetailedEvent('OnMessageFromChanged', event, eventData);
+        storeEvent(eventData);
+        showNotification('📧 From Changed', 'Sender account changed', 'FROM');
+
         event.completed();
       });
     } catch (error) {
@@ -448,16 +693,31 @@
     console.log('%c[LAUNCH EVENT] OnSensitivityLabelChanged', 'color: #10b981; font-weight: bold;', event);
 
     try {
-      logDetailedEvent('OnSensitivityLabelChanged', event, {
+      const eventData = {
+        id: Date.now(),
+        type: 'OnSensitivityLabelChanged',
+        action: 'SENSITIVITY_CHANGED',
+        timestamp: new Date().toISOString(),
         description: 'Sensitivity label has been changed',
-        sensitivityLabel: event.sensitivityLabel || 'Not available'
-      });
+        details: {
+          sensitivityLabel: event.sensitivityLabel || 'Not available'
+        }
+      };
+
+      logDetailedEvent('OnSensitivityLabelChanged', event, eventData);
+      storeEvent(eventData);
+      showNotification('🔒 Sensitivity Changed', 'Email sensitivity updated', 'SENSITIVITY');
+
       event.completed();
     } catch (error) {
       console.error('Error in onSensitivityLabelChangedHandler:', error);
       event.completed();
     }
   }
+
+  // ============================================================================
+  // HELPER FUNCTIONS
+  // ============================================================================
 
   // Helper function to log detailed event information
   function logDetailedEvent(eventName, event, additionalData) {
@@ -471,7 +731,8 @@
           completed: typeof event.completed
         },
         mailboxInfo: {
-          userProfile: Office.context.mailbox.userProfile ? Office.context.mailbox.userProfile.emailAddress : 'unknown',
+          userProfile: Office.context.mailbox.userProfile ?
+            Office.context.mailbox.userProfile.emailAddress : 'unknown',
           diagnostics: Office.context.mailbox.diagnostics
         },
         itemInfo: {
@@ -491,6 +752,6 @@
     }
   }
 
-  console.log('InboxAgent launchevent.js loaded successfully');
+  console.log('✓ InboxAgent launchevent.js loaded successfully');
 
 })();
