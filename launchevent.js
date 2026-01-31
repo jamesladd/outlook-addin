@@ -1,22 +1,133 @@
 /* global Office */
 
-// This file handles all event-based activation scenarios
+// Track conversation IDs to detect replies/forwards
+const conversationTracker = new Map();
+let lastReadItemId = null;
+let lastReadConversationId = null;
 
 Office.onReady(() => {
   console.log('%c=== InboxAgent Event Handler Initialized ===', 'color: #0078d4; font-size: 14px; font-weight: bold;');
 });
 
-// OnNewMessageCompose Event Handler
+// Enhanced OnNewMessageCompose Event Handler with Reply/Forward Detection
 function onNewMessageComposeHandler(event) {
   console.log('%c[LAUNCH EVENT] OnNewMessageCompose', 'color: #10b981; font-weight: bold;', event);
 
-  logDetailedEvent('OnNewMessageCompose', event, {
-    description: 'User started composing a new message',
-    itemType: 'Message',
-    mode: 'Compose'
+  const item = Office.context.mailbox.item;
+
+  // Detect reply or forward by analyzing the compose item
+  detectComposeAction(item, (actionType, details) => {
+    logDetailedEvent('OnNewMessageCompose', event, {
+      description: `User started composing a new message (${actionType})`,
+      itemType: 'Message',
+      mode: 'Compose',
+      action: actionType, // 'NEW', 'REPLY', 'REPLY_ALL', 'FORWARD'
+      ...details
+    });
   });
 
   event.completed();
+}
+
+// Function to detect if this is a reply, reply all, forward, or new message
+function detectComposeAction(item, callback) {
+  const details = {};
+
+  // Get conversation ID
+  const conversationId = item.conversationId;
+  details.conversationId = conversationId;
+
+  // Get subject to check for RE: or FW: prefixes
+  item.subject.getAsync((subjectResult) => {
+    if (subjectResult.status === Office.AsyncResultStatus.Succeeded) {
+      const subject = subjectResult.value || '';
+      details.subject = subject;
+
+      // Check for reply/forward indicators in subject
+      const isReply = subject.match(/^(RE:|Re:)/i);
+      const isForward = subject.match(/^(FW:|Fw:|FWD:)/i);
+
+      // Get body to check for quoted content
+      item.body.getAsync(Office.CoercionType.Text, (bodyResult) => {
+        if (bodyResult.status === Office.AsyncResultStatus.Succeeded) {
+          const bodyText = bodyResult.value || '';
+          details.bodyLength = bodyText.length;
+
+          // Check for typical reply/forward markers in body
+          const hasQuotedContent = bodyText.includes('From:') ||
+            bodyText.includes('Sent:') ||
+            bodyText.includes('-----Original Message-----') ||
+            bodyText.match(/On .+ wrote:/);
+
+          details.hasQuotedContent = hasQuotedContent;
+
+          // Get recipients to help determine action type
+          item.to.getAsync((toResult) => {
+            if (toResult.status === Office.AsyncResultStatus.Succeeded) {
+              const recipients = toResult.value;
+              details.recipientCount = recipients.length;
+              details.recipients = recipients.map(r => r.emailAddress);
+
+              // Get CC recipients
+              item.cc.getAsync((ccResult) => {
+                if (ccResult.status === Office.AsyncResultStatus.Succeeded) {
+                  const ccRecipients = ccResult.value;
+                  details.ccCount = ccRecipients.length;
+                  details.ccRecipients = ccRecipients.map(r => r.emailAddress);
+
+                  // Determine action type based on collected data
+                  let actionType = 'NEW';
+
+                  if (isReply && hasQuotedContent) {
+                    // Check if it's reply all (multiple recipients or CC present)
+                    if (recipients.length > 1 || ccRecipients.length > 0) {
+                      actionType = 'REPLY_ALL';
+                      console.log('%c🔄 REPLY ALL DETECTED!', 'color: #f59e0b; font-size: 14px; font-weight: bold;');
+                    } else {
+                      actionType = 'REPLY';
+                      console.log('%c↩️ REPLY DETECTED!', 'color: #10b981; font-size: 14px; font-weight: bold;');
+                    }
+                  } else if (isForward && hasQuotedContent) {
+                    actionType = 'FORWARD';
+                    console.log('%c➡️ FORWARD DETECTED!', 'color: #3b82f6; font-size: 14px; font-weight: bold;');
+                  }
+
+                  // Check against conversation tracker
+                  if (conversationId && lastReadConversationId === conversationId) {
+                    details.relatedToLastRead = true;
+                    if (actionType === 'NEW' && hasQuotedContent) {
+                      actionType = 'REPLY'; // Fallback detection
+                    }
+                  }
+
+                  details.detectedAction = actionType;
+                  callback(actionType, details);
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+}
+
+// Track when reading messages to help detect subsequent replies
+function onMessageReadHandler(event) {
+  const item = Office.context.mailbox.item;
+
+  if (item) {
+    lastReadItemId = item.itemId;
+    lastReadConversationId = item.conversationId;
+
+    conversationTracker.set(item.conversationId, {
+      itemId: item.itemId,
+      timestamp: Date.now()
+    });
+
+    console.log('%c📖 Message Read - Tracking for Reply/Forward Detection', 'color: #6b7280; font-weight: bold;');
+    console.log('Conversation ID:', item.conversationId);
+  }
 }
 
 // OnNewAppointmentOrganizer Event Handler
@@ -185,9 +296,20 @@ function onMessageSendHandler(event) {
 
   Office.context.mailbox.item.subject.getAsync((subjectResult) => {
     Office.context.mailbox.item.to.getAsync((toResult) => {
+      const subject = subjectResult.value || '';
+      const isReply = subject.match(/^(RE:|Re:)/i);
+      const isForward = subject.match(/^(FW:|Fw:|FWD:)/i);
+
+      let sendAction = 'SEND_NEW';
+      if (isReply) sendAction = 'SEND_REPLY';
+      if (isForward) sendAction = 'SEND_FORWARD';
+
+      console.log(`%c📤 ${sendAction} DETECTED!`, 'color: #ef4444; font-size: 14px; font-weight: bold;');
+
       logDetailedEvent('OnMessageSend', event, {
-        description: 'User is attempting to send a message',
-        subject: subjectResult.value,
+        description: `User is attempting to send a message (${sendAction})`,
+        sendAction: sendAction,
+        subject: subject,
         recipientCount: toResult.value.length,
         recipients: toResult.value.map(r => r.emailAddress)
       });
@@ -261,9 +383,9 @@ function logDetailedEvent(eventName, event, additionalData) {
       diagnostics: Office.context.mailbox.diagnostics
     },
     itemInfo: {
-      itemId: Office.context.mailbox.item.itemId,
-      itemType: Office.context.mailbox.item.itemType,
-      itemClass: Office.context.mailbox.item.itemClass
+      itemId: Office.context.mailbox.item ? Office.context.mailbox.item.itemId : null,
+      itemType: Office.context.mailbox.item ? Office.context.mailbox.item.itemType : null,
+      itemClass: Office.context.mailbox.item ? Office.context.mailbox.item.itemClass : null
     },
     additionalData: additionalData
   };
