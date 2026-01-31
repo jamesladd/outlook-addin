@@ -52,7 +52,7 @@
 
     <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
-    <!-- VersionOverrides 1.0 - REQUIRED as parent -->
+    <!-- VersionOverrides 1.0 -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
 
         <Requirements>
@@ -66,15 +66,8 @@
 
                 <DesktopFormFactor>
 
-                    <!-- FunctionFile for commands -->
+                    <!-- FunctionFile - Required -->
                     <FunctionFile resid="Commands.Url"/>
-
-                    <!-- GetStarted section -->
-                    <GetStarted>
-                        <Title resid="GetStarted.Title"/>
-                        <Description resid="GetStarted.Description"/>
-                        <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
-                    </GetStarted>
 
                     <!-- Extension Point for Message Read -->
                     <ExtensionPoint xsi:type="MessageReadCommandSurface">
@@ -176,7 +169,7 @@
             </Host>
         </Hosts>
 
-        <!-- Resources for 1.0 -->
+        <!-- Resources -->
         <Resources>
             <bt:Images>
                 <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
@@ -187,20 +180,17 @@
                 <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                 <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
                 <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
-                <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://jamesladd.github.io/outlook-addin/help"/>
             </bt:Urls>
             <bt:ShortStrings>
                 <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
                 <bt:String id="TaskpaneButton.Label" DefaultValue="Open InboxAgent"/>
-                <bt:String id="GetStarted.Title" DefaultValue="Get started with InboxAgent"/>
             </bt:ShortStrings>
             <bt:LongStrings>
                 <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent task pane to monitor and track email activities"/>
-                <bt:String id="GetStarted.Description" DefaultValue="InboxAgent tracks all your email actions and events. Click 'Open InboxAgent' to get started."/>
             </bt:LongStrings>
         </Resources>
 
-        <!-- VersionOverrides 1.1 - NESTED inside 1.0 -->
+        <!-- VersionOverrides 1.1 NESTED inside 1.0 -->
         <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
 
             <Requirements>
@@ -214,15 +204,10 @@
 
                     <DesktopFormFactor>
 
-                        <!-- FunctionFile is required -->
+                        <!-- FunctionFile - Required FIRST -->
                         <FunctionFile resid="Commands.Url"/>
 
-                        <!-- GetStarted section -->
-                        <GetStarted>
-                            <Title resid="GetStarted.Title"/>
-                            <Description resid="GetStarted.Description"/>
-                            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
-                        </GetStarted>
+                        <!-- All ExtensionPoints BEFORE Runtimes -->
 
                         <!-- Extension Point for Message Read with PINNING -->
                         <ExtensionPoint xsi:type="MessageReadCommandSurface">
@@ -348,7 +333,7 @@
                             <SourceLocation resid="JSRuntime.Url"/>
                         </ExtensionPoint>
 
-                        <!-- Runtimes - at the END after all ExtensionPoints -->
+                        <!-- Runtimes MUST be LAST in DesktopFormFactor -->
                         <Runtimes>
                             <Runtime resid="Commands.Url">
                                 <Override type="javascript" resid="JSRuntime.Url"/>
@@ -359,7 +344,7 @@
                 </Host>
             </Hosts>
 
-            <!-- Resources for 1.1 -->
+            <!-- Resources -->
             <Resources>
                 <bt:Images>
                     <bt:Image id="Icon.16x16" DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-16.png"/>
@@ -370,23 +355,18 @@
                     <bt:Url id="Commands.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/commands.html"/>
                     <bt:Url id="Taskpane.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/taskpane.html"/>
                     <bt:Url id="JSRuntime.Url" DefaultValue="https://jamesladd.github.io/outlook-addin/launchevent.js"/>
-                    <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://jamesladd.github.io/outlook-addin/help"/>
                 </bt:Urls>
                 <bt:ShortStrings>
                     <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
                     <bt:String id="TaskpaneButton.Label" DefaultValue="Open InboxAgent"/>
-                    <bt:String id="GetStarted.Title" DefaultValue="Get started with InboxAgent"/>
                 </bt:ShortStrings>
                 <bt:LongStrings>
                     <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent task pane to monitor and track email activities"/>
-                    <bt:String id="GetStarted.Description" DefaultValue="InboxAgent tracks all your email actions and events. Click 'Open InboxAgent' to get started."/>
                 </bt:LongStrings>
             </Resources>
 
         </VersionOverrides>
-        <!-- End of VersionOverrides 1.1 -->
 
     </VersionOverrides>
-    <!-- End of VersionOverrides 1.0 -->
 
 </OfficeApp>
