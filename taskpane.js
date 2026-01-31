@@ -426,6 +426,7 @@
 
     const captureQueue = new Queue({ results: [], concurrency: 1 });
     const state = {
+      // timestamp: new Date().toISOString(),  // REMOVED - Don't add timestamp
       itemType: item.itemType,
       itemId: item.itemId
     };
@@ -502,6 +503,7 @@
     captureQueue.push(cb => {
       previousItemState = state;
       console.log('=== ITEM STATE CAPTURED ===');
+      console.log('Captured at:', new Date().toISOString()); // Log time separately
       console.log('State:', JSON.stringify(state, null, 2));
       cb();
     });
@@ -526,6 +528,7 @@
 
     const checkQueue = new Queue({ results: [], concurrency: 1 });
     const currentState = {
+      // timestamp: new Date().toISOString(),  // REMOVED - Don't add timestamp
       itemType: item.itemType,
       itemId: item.itemId
     };
@@ -594,6 +597,7 @@
 
     // Compare states
     checkQueue.push(cb => {
+      console.log('Check performed at:', new Date().toISOString()); // Log time separately
       compareStates(previousItemState, currentState);
       previousItemState = currentState;
       cb();
@@ -612,7 +616,7 @@
 
     if (oldJSON !== newJSON) {
       console.log('=== ITEM STATE CHANGED ===');
-      console.log('Timestamp:', new Date().toISOString());
+      console.log('Comparison time:', new Date().toISOString());
       console.log('Previous State:', oldJSON);
       console.log('Current State:', newJSON);
 
@@ -621,7 +625,7 @@
 
       // Check subject change
       if (oldState.subject !== newState.subject) {
-        const change = `Subject changed: "${oldState.subject}" → "${newState.subject}"`;
+        const change = `Subject: "${oldState.subject}" → "${newState.subject}"`;
         changes.push(change);
         logActivity('warning', change);
         console.log('✓', change);
@@ -652,6 +656,16 @@
       const newCc = JSON.stringify(newState.cc || []);
       if (oldCc !== newCc) {
         const change = 'CC recipients changed';
+        changes.push(change);
+        logActivity('warning', change);
+        console.log('✓', change);
+      }
+
+      // Check From change
+      const oldFrom = JSON.stringify(oldState.from || null);
+      const newFrom = JSON.stringify(newState.from || null);
+      if (oldFrom !== newFrom) {
+        const change = 'From address changed';
         changes.push(change);
         logActivity('warning', change);
         console.log('✓', change);
@@ -688,17 +702,17 @@
       }
 
       if (changes.length > 0) {
-        console.log(`Total changes detected: ${changes.length}`);
+        console.log(`✓ Total changes detected: ${changes.length}`);
         eventCounter++;
         updateEventCounter();
       } else {
         console.log('⚠ JSON differs but no specific property changes found');
-        console.log('This might be due to object property ordering');
+        console.log('This might be due to object property ordering or other differences');
       }
     } else {
-      // Only log this occasionally to reduce console spam
-      if (Math.random() < 0.1) { // 10% of the time
-        console.log('✓ No state changes (polling...)');
+      // Only log occasionally to reduce console spam
+      if (Math.random() < 0.05) { // 5% of the time
+        console.log('✓ No state changes detected (polling...)');
       }
     }
   }
