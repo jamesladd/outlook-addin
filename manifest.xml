@@ -8,11 +8,11 @@
 
     <!-- Basic Add-in Information -->
     <Id>12345678-1234-1234-1234-123456789012</Id>
-    <Version>1.16.0.0</Version>
+    <Version>1.17.0.0</Version>
     <ProviderName>InboxAgent Provider</ProviderName>
     <DefaultLocale>en-US</DefaultLocale>
-    <DisplayName DefaultValue="InboxAgentN"/>
-    <Description DefaultValue="A comprehensive Outlook Mail Add-in with pinnable taskpane and event-based activation"/>
+    <DisplayName DefaultValue="InboxAgentO"/>
+    <Description DefaultValue="Advanced email tracking and event monitoring for Outlook Web"/>
     <IconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-64.png"/>
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-128.png"/>
     <SupportUrl DefaultValue="https://jamesladd.github.io/outlook-addin/support"/>
@@ -46,8 +46,6 @@
     <Rule xsi:type="RuleCollection" Mode="Or">
         <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
         <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
-        <Rule xsi:type="ItemIs" ItemType="Appointment" FormType="Read"/>
-        <Rule xsi:type="ItemIs" ItemType="Appointment" FormType="Edit"/>
     </Rule>
 
     <!-- Version Overrides 1.1 -->
@@ -103,23 +101,6 @@
                                         </Action>
                                     </Control>
 
-                                    <!-- Action Button -->
-                                    <Control xsi:type="Button" id="ActionButton">
-                                        <Label resid="ActionButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="ActionButton.Label"/>
-                                            <Description resid="ActionButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ExecuteFunction">
-                                            <FunctionName>action</FunctionName>
-                                        </Action>
-                                    </Control>
-
                                 </Group>
                             </OfficeTab>
                         </ExtensionPoint>
@@ -153,117 +134,18 @@
                             </OfficeTab>
                         </ExtensionPoint>
 
-                        <!-- Extension Point: Appointment Organizer Command Surface -->
-                        <ExtensionPoint xsi:type="AppointmentOrganizerCommandSurface">
-                            <OfficeTab id="TabDefault">
-                                <Group id="apptOrganizerGroup">
-                                    <Label resid="GroupLabel"/>
-
-                                    <!-- Taskpane Button -->
-                                    <Control xsi:type="Button" id="apptOrganizerOpenPaneButton">
-                                        <Label resid="TaskpaneButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="TaskpaneButton.Label"/>
-                                            <Description resid="TaskpaneButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ShowTaskpane">
-                                            <SourceLocation resid="Taskpane.Url"/>
-                                            <!-- Pinnable TaskPane -->
-                                            <SupportsPinning>true</SupportsPinning>
-                                        </Action>
-                                    </Control>
-
-                                </Group>
-                            </OfficeTab>
-                        </ExtensionPoint>
-
-                        <!-- Extension Point: Appointment Attendee Command Surface -->
-                        <ExtensionPoint xsi:type="AppointmentAttendeeCommandSurface">
-                            <OfficeTab id="TabDefault">
-                                <Group id="apptAttendeeGroup">
-                                    <Label resid="GroupLabel"/>
-
-                                    <!-- Taskpane Button -->
-                                    <Control xsi:type="Button" id="apptAttendeeOpenPaneButton">
-                                        <Label resid="TaskpaneButton.Label"/>
-                                        <Supertip>
-                                            <Title resid="TaskpaneButton.Label"/>
-                                            <Description resid="TaskpaneButton.Tooltip"/>
-                                        </Supertip>
-                                        <Icon>
-                                            <bt:Image size="16" resid="Icon.16x16"/>
-                                            <bt:Image size="32" resid="Icon.32x32"/>
-                                            <bt:Image size="80" resid="Icon.80x80"/>
-                                        </Icon>
-                                        <Action xsi:type="ShowTaskpane">
-                                            <SourceLocation resid="Taskpane.Url"/>
-                                            <!-- Pinnable TaskPane -->
-                                            <SupportsPinning>true</SupportsPinning>
-                                        </Action>
-                                    </Control>
-
-                                </Group>
-                            </OfficeTab>
-                        </ExtensionPoint>
-
-                        <!-- Extension Point: Module -->
-                        <ExtensionPoint xsi:type="Module">
-                            <SourceLocation resid="Taskpane.Url"/>
-                            <Label resid="ModuleLabel"/>
-                            <CommandSurface>
-                                <CustomTab id="CustomTab">
-                                    <Group id="CustomTabGroup">
-                                        <Label resid="GroupLabel"/>
-                                        <Control xsi:type="Button" id="CustomTabButton">
-                                            <Label resid="TaskpaneButton.Label"/>
-                                            <Supertip>
-                                                <Title resid="TaskpaneButton.Label"/>
-                                                <Description resid="TaskpaneButton.Tooltip"/>
-                                            </Supertip>
-                                            <Icon>
-                                                <bt:Image size="16" resid="Icon.16x16"/>
-                                                <bt:Image size="32" resid="Icon.32x32"/>
-                                                <bt:Image size="80" resid="Icon.80x80"/>
-                                            </Icon>
-                                            <Action xsi:type="ShowTaskpane">
-                                                <SourceLocation resid="Taskpane.Url"/>
-                                                <SupportsPinning>true</SupportsPinning>
-                                            </Action>
-                                        </Control>
-                                    </Group>
-                                    <Label resid="CustomTabLabel"/>
-                                </CustomTab>
-                            </CommandSurface>
-                        </ExtensionPoint>
-
                         <!-- Extension Point: Events (LaunchEvent) -->
                         <ExtensionPoint xsi:type="LaunchEvent">
-
-                            <!-- OnNewMessageCompose Event -->
                             <LaunchEvents>
                                 <LaunchEvent Type="OnNewMessageCompose" FunctionName="onNewMessageComposeHandler" SendMode="PromptUser"/>
-                                <LaunchEvent Type="OnNewAppointmentOrganizer" FunctionName="onNewAppointmentOrganizerHandler" SendMode="PromptUser"/>
                                 <LaunchEvent Type="OnMessageAttachmentsChanged" FunctionName="onMessageAttachmentsChangedHandler" SendMode="PromptUser"/>
-                                <LaunchEvent Type="OnAppointmentAttachmentsChanged" FunctionName="onAppointmentAttachmentsChangedHandler" SendMode="PromptUser"/>
                                 <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onMessageRecipientsChangedHandler" SendMode="PromptUser"/>
-                                <LaunchEvent Type="OnAppointmentAttendeesChanged" FunctionName="onAppointmentAttendeesChangedHandler" SendMode="PromptUser"/>
-                                <LaunchEvent Type="OnAppointmentTimeChanged" FunctionName="onAppointmentTimeChangedHandler" SendMode="PromptUser"/>
-                                <LaunchEvent Type="OnAppointmentRecurrenceChanged" FunctionName="onAppointmentRecurrenceChangedHandler" SendMode="PromptUser"/>
                                 <LaunchEvent Type="OnInfoBarDismissClicked" FunctionName="onInfoBarDismissClickedHandler" SendMode="PromptUser"/>
                                 <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser"/>
-                                <LaunchEvent Type="OnAppointmentSend" FunctionName="onAppointmentSendHandler" SendMode="PromptUser"/>
                                 <LaunchEvent Type="OnMessageFromChanged" FunctionName="onMessageFromChangedHandler" SendMode="PromptUser"/>
                                 <LaunchEvent Type="OnSensitivityLabelChanged" FunctionName="onSensitivityLabelChangedHandler" SendMode="PromptUser"/>
                             </LaunchEvents>
-
-                            <!-- SourceLocation for Events Runtime -->
                             <SourceLocation resid="WebViewRuntime.Url"/>
-
                         </ExtensionPoint>
 
                     </DesktopFormFactor>
@@ -285,14 +167,10 @@
                 </bt:Urls>
                 <bt:ShortStrings>
                     <bt:String id="GroupLabel" DefaultValue="InboxAgent"/>
-                    <bt:String id="TaskpaneButton.Label" DefaultValue="Show Taskpane"/>
-                    <bt:String id="ActionButton.Label" DefaultValue="Perform Action"/>
-                    <bt:String id="ModuleLabel" DefaultValue="InboxAgent Module"/>
-                    <bt:String id="CustomTabLabel" DefaultValue="InboxAgent Tab"/>
+                    <bt:String id="TaskpaneButton.Label" DefaultValue="InboxAgent"/>
                 </bt:ShortStrings>
                 <bt:LongStrings>
-                    <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens the InboxAgent taskpane with pinnable functionality"/>
-                    <bt:String id="ActionButton.Tooltip" DefaultValue="Performs a custom action"/>
+                    <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open InboxAgent monitoring panel"/>
                 </bt:LongStrings>
             </Resources>
 

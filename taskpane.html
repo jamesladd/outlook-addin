@@ -1,162 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InboxAgent Taskpane</title>
-    <link rel="stylesheet" href="taskpane.css">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>InboxAgent</title>
 
-    <!-- Office.js Library -->
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+
+    <!-- Queue Library -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/queue@7.0.0/index.min.js"></script>
+
+    <!-- Taskpane CSS -->
+    <link rel="stylesheet" type="text/css" href="taskpane.css">
 </head>
 <body>
 <div class="container">
-    <header class="header">
-        <div class="logo">
-            <svg width="32" height="32" viewBox="0 0 32 32">
-                <circle cx="16" cy="16" r="14" fill="#0078d4"/>
-                <path d="M16 8 L16 24 M8 16 L24 16" stroke="white" stroke-width="2"/>
-            </svg>
-        </div>
-        <h1 class="title">InboxAgent</h1>
-        <div class="status-indicator" id="statusIndicator">
-            <span class="status-dot"></span>
-            <span class="status-text">Active</span>
-        </div>
+    <header>
+        <h1>📬 InboxAgent</h1>
+        <p class="subtitle">Email Tracking & Event Monitor</p>
     </header>
 
-    <!-- Pin Reminder -->
-    <section class="pin-reminder">
-        <div class="reminder-content">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke-width="2"/>
-                <circle cx="12" cy="10" r="3" stroke-width="2"/>
-            </svg>
-            <div>
-                <strong>📌 Keep InboxAgent Visible!</strong>
-                <p>Pin this taskpane to see events in real-time. Click the pin icon in the top-right corner.</p>
+    <section class="status-section">
+        <h2>Status</h2>
+        <div class="status-card">
+            <div class="status-item">
+                <span class="status-label">Monitoring:</span>
+                <span id="monitoring-status" class="status-value active">Active</span>
             </div>
-            <button class="btn-close-reminder" id="closeReminder">×</button>
+            <div class="status-item">
+                <span class="status-label">Current Item:</span>
+                <span id="current-item" class="status-value">Loading...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Events Tracked:</span>
+                <span id="events-tracked" class="status-value">0</span>
+            </div>
         </div>
     </section>
 
-    <main class="main-content">
-        <!-- Notification Area (dynamically created) -->
+    <section class="monitoring-section">
+        <h2>Recent Activities</h2>
+        <div id="activity-log" class="activity-log">
+            <div class="activity-item info">
+                <div class="activity-time">Just now</div>
+                <div class="activity-message">InboxAgent initialized</div>
+            </div>
+        </div>
+    </section>
 
-        <section class="info-section">
-            <h2>Current Item Information</h2>
-            <div class="info-card" id="itemInfo">
-                <div class="info-row">
-                    <span class="info-label">Type:</span>
-                    <span class="info-value" id="itemType">Loading...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Subject:</span>
-                    <span class="info-value" id="itemSubject">Loading...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Mode:</span>
-                    <span class="info-value" id="itemMode">Loading...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Item ID:</span>
-                    <span class="info-value info-id" id="itemId">Loading...</span>
-                </div>
-            </div>
-        </section>
+    <section class="actions-section">
+        <h2>Actions</h2>
+        <button id="clear-log" class="btn btn-secondary">Clear Log</button>
+        <button id="start-monitoring" class="btn btn-primary">Start Deep Monitoring</button>
+    </section>
 
-        <section class="event-section">
-            <div class="section-header">
-                <h2>Event Monitor</h2>
-                <div class="event-controls">
-                    <button class="btn btn-secondary" id="clearEventsBtn">Clear</button>
-                    <button class="btn btn-secondary" id="exportEventsBtn">Export</button>
-                </div>
-            </div>
-            <div class="event-stats">
-                <div class="stat-card">
-                    <span class="stat-number" id="totalEvents">0</span>
-                    <span class="stat-label">Total Events</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="activeListeners">0</span>
-                    <span class="stat-label">Active Listeners</span>
-                </div>
-            </div>
-            <div class="event-log-container">
-                <div class="event-log" id="eventLog">
-                    <div class="event-placeholder">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <p>Waiting for events...</p>
-                        <small>Events will appear here as they occur</small>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="actions-section">
-            <h2>Quick Actions</h2>
-            <div class="action-buttons">
-                <button class="btn btn-primary" id="refreshBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Refresh Info
-                </button>
-                <button class="btn btn-primary" id="testEventBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Test Event
-                </button>
-                <button class="btn btn-primary" id="getPropertiesBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Get Properties
-                </button>
-                <button class="btn btn-secondary" id="checkPropertiesBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" stroke-width="2"/>
-                    </svg>
-                    Check Now
-                </button>
-                <button class="btn btn-warning" id="toggleMonitoringBtn">
-                    ⏸️ Stop Monitoring
-                </button>
-            </div>
-        </section>
-
-        <section class="settings-section">
-            <h2>Settings</h2>
-            <div class="setting-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="verboseLogging" checked>
-                    <span>Verbose Logging</span>
-                </label>
-            </div>
-            <div class="setting-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="autoScroll" checked>
-                    <span>Auto-scroll Event Log</span>
-                </label>
-            </div>
-            <div class="setting-item">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="timestampEvents" checked>
-                    <span>Timestamp Events</span>
-                </label>
-            </div>
-        </section>
-    </main>
-
-    <footer class="footer">
-        <p>InboxAgent v1.0.0 | Pinnable Taskpane Active | Property Monitoring Enabled</p>
-    </footer>
+    <section class="info-section">
+        <h2>Tracked Events</h2>
+        <ul class="info-list">
+            <li>✓ New Message Compose</li>
+            <li>✓ Attachments Changed</li>
+            <li>✓ Recipients Changed</li>
+            <li>✓ Message Send</li>
+            <li>✓ From Address Changed</li>
+            <li>✓ Sensitivity Label Changed</li>
+            <li>✓ Category Changes</li>
+            <li>✓ Flag Status Changes</li>
+            <li>✓ Read/Unread Status</li>
+            <li>✓ Reply/Forward Actions</li>
+        </ul>
+    </section>
 </div>
 
-<script src="taskpane.js"></script>
+<script type="text/javascript" src="taskpane.js"></script>
 </body>
 </html>

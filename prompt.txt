@@ -418,3 +418,4 @@ Create an Outlook Mail Add-in called InboxAgent with the following features:
 7. It MUST track and detect any changes to email, including but not limited to changes of Category, Flag, Reported as Spam.
 8. It uses a string compare of stringify JSON to check differences in email properties.
 9. It MUST make a launchevent that uses an immediate function to attach listeners.
+10. You MUST put CSS in its own file, e.g. taskpane.css
