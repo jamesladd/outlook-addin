@@ -1,46 +1,36 @@
 /* global Office */
 
 Office.onReady(() => {
-  // Office is ready
+  console.log('%c=== InboxAgent Commands Initialized ===', 'color: #0078d4; font-size: 14px; font-weight: bold;');
 });
 
-/**
- * Shows the subject of the selected email(s) in a dialog
- * This function is called when the InboxAgent Action button is clicked
- */
-function showSubject(event) {
-  // Get the current item
+// Action button function
+function action(event) {
+  console.log('%c[COMMAND] Action function executed', 'color: #8b5cf6; font-weight: bold;');
+
   const item = Office.context.mailbox.item;
 
-  // Get the subject
-  item.subject.getAsync((result) => {
-    if (result.status === Office.AsyncResultStatus.Succeeded) {
-      const subject = result.value;
-
-      // Display the subject in a dialog
-      const message = {
+  if (item) {
+    // Display a notification
+    Office.context.mailbox.item.notificationMessages.addAsync(
+      "actionNotification",
+      {
         type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
-        message: `Subject: ${subject}`,
-        icon: "Icon.80x80",
+        message: "InboxAgent action executed successfully!",
+        icon: "icon16",
         persistent: false
-      };
-
-      // Show notification
-      item.notificationMessages.addAsync("subjectNotification", message, (notificationResult) => {
-        if (notificationResult.status === Office.AsyncResultStatus.Failed) {
-          console.error("Failed to show notification:", notificationResult.error);
+      },
+      (asyncResult) => {
+        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+          console.log('✓ Notification displayed');
         }
-      });
+      }
+    );
+  }
 
-    } else {
-      console.error("Failed to get subject:", result.error);
-    }
-
-    // Required: Signal that the function has completed
-    event.completed();
-  });
+  // Signal that the function is complete
+  event.completed();
 }
 
 // Register the function
-Office.actions = Office.actions || {};
-Office.actions.showSubject = showSubject;
+Office.actions.associate("action", action);
