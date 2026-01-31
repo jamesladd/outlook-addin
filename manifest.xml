@@ -16,7 +16,7 @@
     <HighResolutionIconUrl DefaultValue="https://jamesladd.github.io/outlook-addin/assets/icon-128.png"/>
     <SupportUrl DefaultValue="https://jamesladd.github.io/outlook-addin/support.html"/>
 
-    <!-- Hosts - Web Only -->
+    <!-- Hosts -->
     <Hosts>
         <Host Name="Mailbox"/>
     </Hosts>
@@ -58,14 +58,14 @@
         <Hosts>
             <Host xsi:type="MailHost">
 
-                <!-- Event-based activation -->
-                <Runtimes>
-                    <Runtime resid="WebViewRuntime.Url">
-                        <Override type="javascript" resid="JSRuntime.Url"/>
-                    </Runtime>
-                </Runtimes>
-
                 <DesktopFormFactor>
+
+                    <!-- Runtimes must be inside DesktopFormFactor -->
+                    <Runtimes>
+                        <Runtime resid="WebViewRuntime.Url">
+                            <Override type="javascript" resid="JSRuntime.Url"/>
+                        </Runtime>
+                    </Runtimes>
 
                     <!-- Function File for Commands -->
                     <FunctionFile resid="Commands.Url"/>
@@ -192,13 +192,14 @@
             <Hosts>
                 <Host xsi:type="MailHost">
 
-                    <Runtimes>
-                        <Runtime resid="WebViewRuntime.Url">
-                            <Override type="javascript" resid="JSRuntime.Url"/>
-                        </Runtime>
-                    </Runtimes>
-
                     <DesktopFormFactor>
+
+                        <!-- Runtimes inside DesktopFormFactor for 1.1 -->
+                        <Runtimes>
+                            <Runtime resid="WebViewRuntime.Url">
+                                <Override type="javascript" resid="JSRuntime.Url"/>
+                            </Runtime>
+                        </Runtimes>
 
                         <FunctionFile resid="Commands.Url"/>
 
