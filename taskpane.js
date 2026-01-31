@@ -58,11 +58,8 @@
     console.log('=== CHECKING EVENT RUNTIME ===');
     console.log('Timestamp:', new Date().toISOString());
 
-    // The event runtime is separate, so we can't directly access it
-    // But we can check if the runtime is configured
     const runtimeStatus = document.getElementById('runtime-status');
 
-    // Check if Office supports event-based activation
     if (Office.context.mailbox.item && Office.context.mailbox.addHandlerAsync) {
       runtimeStatus.textContent = 'Active';
       runtimeStatus.classList.add('active');
@@ -73,6 +70,35 @@
       runtimeStatus.classList.add('inactive');
       logActivity('warning', 'Event-based activation not available');
       console.log('Event-based activation is NOT supported');
+    }
+  }
+
+  // Helper function to get property value (handles both read and compose modes)
+  function getPropertyValue(item, propertyName, callback) {
+    if (!item) {
+      callback(null);
+      return;
+    }
+
+    const property = item[propertyName];
+
+    if (!property) {
+      callback(null);
+      return;
+    }
+
+    // Check if it's a compose mode property (has getAsync)
+    if (typeof property.getAsync === 'function') {
+      property.getAsync((result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          callback(result.value);
+        } else {
+          callback(null);
+        }
+      });
+    } else {
+      // Read mode - direct property access
+      callback(property);
     }
   }
 
@@ -90,44 +116,37 @@
       console.log('  - Item ID:', item.itemId || 'No ID (new item)');
       console.log('  - Conversation ID:', item.conversationId);
 
-      // Get more details
       const testQueue = new Queue({ results: [], concurrency: 1 });
 
       testQueue.push(cb => {
-        item.subject.getAsync((result) => {
-          console.log('  - Subject:', result.value);
-          logActivity('info', `Subject: ${result.value}`);
+        getPropertyValue(item, 'subject', (value) => {
+          console.log('  - Subject:', value);
+          logActivity('info', `Subject: ${value}`);
           cb();
         });
       });
 
-      if (item.from) {
-        testQueue.push(cb => {
-          item.from.getAsync((result) => {
-            console.log('  - From:', JSON.stringify(result.value, null, 2));
-            cb();
-          });
+      testQueue.push(cb => {
+        getPropertyValue(item, 'from', (value) => {
+          console.log('  - From:', JSON.stringify(value, null, 2));
+          cb();
         });
-      }
+      });
 
-      if (item.to) {
-        testQueue.push(cb => {
-          item.to.getAsync((result) => {
-            console.log('  - To:', JSON.stringify(result.value, null, 2));
-            cb();
-          });
+      testQueue.push(cb => {
+        getPropertyValue(item, 'to', (value) => {
+          console.log('  - To:', JSON.stringify(value, null, 2));
+          cb();
         });
-      }
+      });
 
-      if (item.categories) {
-        testQueue.push(cb => {
-          item.categories.getAsync((result) => {
-            console.log('  - Categories:', JSON.stringify(result.value, null, 2));
-            logActivity('info', `Categories: ${JSON.stringify(result.value)}`);
-            cb();
-          });
+      testQueue.push(cb => {
+        getPropertyValue(item, 'categories', (value) => {
+          console.log('  - Categories:', JSON.stringify(value, null, 2));
+          logActivity('info', `Categories: ${JSON.stringify(value)}`);
+          cb();
         });
-      }
+      });
 
       if (item.attachments) {
         testQueue.push(cb => {
@@ -174,7 +193,6 @@
     // Recipients Changed Event (if in compose mode)
     const item = Office.context.mailbox.item;
     if (item && item.addHandlerAsync) {
-      // Try to add various handlers
       const eventTypes = [
         'RecipientsChanged',
         'RecurrenceChanged',
@@ -231,17 +249,15 @@
     const item = Office.context.mailbox.item;
     if (item) {
       activityQueue.push(cb => {
-        item.subject.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            const subject = result.value || '(No Subject)';
-            document.getElementById('current-item').textContent =
-              subject.substring(0, 30) + (subject.length > 30 ? '...' : '');
+        getPropertyValue(item, 'subject', (subject) => {
+          const displaySubject = subject || '(No Subject)';
+          document.getElementById('current-item').textContent =
+            displaySubject.substring(0, 30) + (displaySubject.length > 30 ? '...' : '');
 
-            console.log('=== CURRENT ITEM UPDATED ===');
-            console.log('Subject:', subject);
-            console.log('Item Type:', item.itemType);
-            console.log('Item ID:', item.itemId || 'New item (no ID)');
-          }
+          console.log('=== CURRENT ITEM UPDATED ===');
+          console.log('Subject:', displaySubject);
+          console.log('Item Type:', item.itemType);
+          console.log('Item ID:', item.itemId || 'New item (no ID)');
           cb();
         });
       });
@@ -317,27 +333,21 @@
 
     // Capture subject
     captureQueue.push(cb => {
-      item.subject.getAsync((result) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded) {
-          state.subject = result.value;
-        }
+      getPropertyValue(item, 'subject', (value) => {
+        state.subject = value;
         cb();
       });
     });
 
     // Capture categories
-    if (item.categories) {
-      captureQueue.push(cb => {
-        item.categories.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            state.categories = result.value;
-          }
-          cb();
-        });
+    captureQueue.push(cb => {
+      getPropertyValue(item, 'categories', (value) => {
+        state.categories = value;
+        cb();
       });
-    }
+    });
 
-    // Capture internet message id (for tracking replies/forwards)
+    // Capture internet message id
     if (item.internetMessageId) {
       captureQueue.push(cb => {
         state.internetMessageId = item.internetMessageId;
@@ -353,41 +363,29 @@
       });
     }
 
-    // Capture from (read mode)
-    if (item.from) {
-      captureQueue.push(cb => {
-        item.from.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            state.from = result.value;
-          }
-          cb();
-        });
+    // Capture from
+    captureQueue.push(cb => {
+      getPropertyValue(item, 'from', (value) => {
+        state.from = value;
+        cb();
       });
-    }
+    });
 
     // Capture to recipients
-    if (item.to) {
-      captureQueue.push(cb => {
-        item.to.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            state.to = result.value;
-          }
-          cb();
-        });
+    captureQueue.push(cb => {
+      getPropertyValue(item, 'to', (value) => {
+        state.to = value;
+        cb();
       });
-    }
+    });
 
     // Capture cc recipients
-    if (item.cc) {
-      captureQueue.push(cb => {
-        item.cc.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            state.cc = result.value;
-          }
-          cb();
-        });
+    captureQueue.push(cb => {
+      getPropertyValue(item, 'cc', (value) => {
+        state.cc = value;
+        cb();
       });
-    }
+    });
 
     // Capture attachments
     if (item.attachments) {
@@ -430,24 +428,18 @@
 
     // Capture current state
     checkQueue.push(cb => {
-      item.subject.getAsync((result) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded) {
-          currentState.subject = result.value;
-        }
+      getPropertyValue(item, 'subject', (value) => {
+        currentState.subject = value;
         cb();
       });
     });
 
-    if (item.categories) {
-      checkQueue.push(cb => {
-        item.categories.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            currentState.categories = result.value;
-          }
-          cb();
-        });
+    checkQueue.push(cb => {
+      getPropertyValue(item, 'categories', (value) => {
+        currentState.categories = value;
+        cb();
       });
-    }
+    });
 
     if (item.internetMessageId) {
       checkQueue.push(cb => {
@@ -463,38 +455,26 @@
       });
     }
 
-    if (item.from) {
-      checkQueue.push(cb => {
-        item.from.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            currentState.from = result.value;
-          }
-          cb();
-        });
+    checkQueue.push(cb => {
+      getPropertyValue(item, 'from', (value) => {
+        currentState.from = value;
+        cb();
       });
-    }
+    });
 
-    if (item.to) {
-      checkQueue.push(cb => {
-        item.to.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            currentState.to = result.value;
-          }
-          cb();
-        });
+    checkQueue.push(cb => {
+      getPropertyValue(item, 'to', (value) => {
+        currentState.to = value;
+        cb();
       });
-    }
+    });
 
-    if (item.cc) {
-      checkQueue.push(cb => {
-        item.cc.getAsync((result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            currentState.cc = result.value;
-          }
-          cb();
-        });
+    checkQueue.push(cb => {
+      getPropertyValue(item, 'cc', (value) => {
+        currentState.cc = value;
+        cb();
       });
-    }
+    });
 
     if (item.attachments) {
       checkQueue.push(cb => {
